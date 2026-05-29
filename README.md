@@ -60,9 +60,5 @@ npm install
 npm run dev
 ```
 
-```
-DATABASE_URL=postgresql://neondb_owner:npg_guDps3n7jHzx@ep-old-snow-algde0q2.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-```
-
 
 *The site is now ready! Open your browser and navigate to the address indicated in the terminal (usually `http://localhost:3000`).*

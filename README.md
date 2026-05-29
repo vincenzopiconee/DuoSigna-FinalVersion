@@ -6,6 +6,7 @@ Welcome to DuoSigna! This document contains all the step-by-step instructions to
 Before starting, ensure you have the following installed on your local machine:
 * **Node.js** (which includes `npm`) to run the frontend.
 * **Python** and **uv** (an ultra-fast Python package manager) to run the backend.
+* **llama3.2** to run the model on your computer.
 
 ---
 

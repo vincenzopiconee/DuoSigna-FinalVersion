@@ -62,12 +62,31 @@ const handleSubmit = async (event) => {
   successMessage.value = ''
 
   // Estrattiamo i dati veri dal Form!
-  const formData = event.data;
+  const formData = event.data || {}
 
   // Ora usiamo formData per leggere i campi
-  if (!isLogin.value && formData.password !== formData.confirmPassword) {
-    errorMessage.value = "Le password non coincidono!"
-    return
+  // 1. Validazione dei campi vuoti per Login e Registrazione
+  if (isLogin.value) {
+    if (!formData.email || !formData.password) {
+      errorMessage.value = "All fields are required to log in."
+      return
+    }
+  } else {
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      errorMessage.value = "All fields are required to create an account."
+      return
+    }
+
+    if (!selectedAvatarUrl.value) {
+      errorMessage.value = "Please choose an avatar to complete your profile."
+      return
+    }
+    
+    // 2. Verifica corrispondenza password (già presente, ma spostata qui logicamente)
+    if (formData.password !== formData.confirmPassword) {
+      errorMessage.value = "Passwords do not match!"
+      return
+    }
   }
   
   isLoading.value = true
@@ -104,7 +123,7 @@ const handleSubmit = async (event) => {
     if (err.data && err.data.detail) {
       errorMessage.value = err.data.detail
     } else {
-      errorMessage.value = "Si è verificato un errore. Riprova."
+      errorMessage.value = "An error occurred. Please try again."
     }
   } finally {
     isLoading.value = false
@@ -179,7 +198,7 @@ const handleSubmit = async (event) => {
 
                   <UAuthForm
                     :fields="currentFields"
-                    :submit-button="{ label: 'Continue', loading: isLoading, color: 'primary', variant: 'solid', size: 'lg' }"
+                    :submit-button="{ label: 'Continue', loading: isLoading, color: 'green', variant: 'solid', size: 'lg' }"
                     @submit="handleSubmit"
                   >
                     <template #password-hint v-if="isLogin">

@@ -44,11 +44,14 @@ const toggleSidebar = () => {
       <UButton 
         icon="i-lucide-plus" 
         :label="isSidebarOpen ? 'New Chat' : ''" 
-        color="primary" 
+        :color="currentChatId ? 'primary' : 'gray'" 
         variant="soft" 
         size="md"
         class="w-full font-bold transition-all duration-200 shadow-sm"
-        :class="isSidebarOpen ? 'justify-start px-4' : 'justify-center'"
+        :class="[
+          isSidebarOpen ? 'justify-start px-4' : 'justify-center',
+          !currentChatId ? 'opacity-60 cursor-not-allowed' : 'hover:scale-105'
+        ]"
         @click="emit('new-chat')"
       />
     </div>

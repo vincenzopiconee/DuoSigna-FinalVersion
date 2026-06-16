@@ -128,7 +128,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     # Controlla se esiste già
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Email già registrata")
+        raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_pwd = hash_password(user.password)
     
@@ -142,28 +142,40 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {"message": "Utente registrato su Postgres!"}
+    return {"message": "User registered successfully on Postgres!"}
 
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if not db_user or not verify_password(user.password, db_user.hashed_password):
-        raise HTTPException(status_code=401, detail="Credenziali errate")
+        raise HTTPException(status_code=401, detail="Wrong credentials")
     
-    token = create_access_token({"sub": db_user.email})
+    # MODIFICA QUI: Creiamo il token usando l'ID univoco e immutabile dell'utente!
+    token = create_access_token({"sub": str(db_user.id)})
+    
     return {"access_token": token, "token_type": "bearer"}
 
 # Funzione per recuperare l'utente dal token (Middleware manuale)
+# Funzione per recuperare l'utente dal token
 async def get_current_user(token: str, db: Session):
     try:
         # Decodifichiamo il token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        sub_val = payload.get("sub")
+        
+        if sub_val is None:
             return None
-        # Cerchiamo l'utente nel database Postgres
-        return db.query(models.User).filter(models.User.email == email).first()
-    except:
+            
+        sub_str = str(sub_val)
+        
+        # Se è un vecchio token che usava la mail, cerchiamo per mail
+        if "@" in sub_str:
+            return db.query(models.User).filter(models.User.email == sub_str).first()
+        # Se è un nuovo token (best practice), cerchiamo per ID immutabile
+        else:
+            return db.query(models.User).filter(models.User.id == int(sub_str)).first()
+            
+    except Exception:
         return None
 
 @app.put("/update-avatar")
@@ -176,26 +188,26 @@ async def update_avatar(
     user = await get_current_user(token, db)
     
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
         
     # Aggiorna l'URL nel database
     user.avatar_url = request.avatar_url
     db.commit()
     
-    return {"message": "Avatar aggiornato con successo!", "avatar_url": user.avatar_url}
+    return {"message": "Avatar updated successfully!", "avatar_url": user.avatar_url}
 
 @app.get("/me")
 # Aggiungiamo Header(None) per dire a FastAPI di cercare negli "Headers" nascosti
 async def get_me(db: Session = Depends(get_db), authorization: str = Header(None)):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Token mancante negli header")
+        raise HTTPException(status_code=401, detail="Token missing in headers")
     
     # Rimuoviamo la parola 'Bearer ' se presente
     token = authorization.replace("Bearer ", "")
     user = await get_current_user(token, db)
     
     if not user:
-        raise HTTPException(status_code=401, detail="Token non valido")
+        raise HTTPException(status_code=401, detail="Token not valid")
         
     return {
         "nome": user.nome,
@@ -211,20 +223,20 @@ async def complete_onboarding(db: Session = Depends(get_db), authorization: str 
     user = await get_current_user(token, db)
     
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
     
     # Aggiorna il database
     user.has_completed_onboarding = True
     db.commit()
     
-    return {"message": "Onboarding salvato con successo!"}
+    return {"message": "Onboarding saved successfully!"}
 
 # --- ROTTA DI LOGOUT ---
 @app.post("/logout")
 async def logout():
     # Poiché usiamo i JWT, il vero logout avviene sul frontend cancellando il token.
     # Questa rotta serve solo per rispondere "OK" a NuxtAuth e non dargli l'errore 404.
-    return {"message": "Logout effettuato con successo dal server"}
+    return {"message": "Logout successfully completed on the server"}
 
 class ChatRequest(BaseModel):
     question: str 
@@ -240,7 +252,7 @@ async def chat_with_bot(
     token = authorization.replace("Bearer ", "") if authorization else ""
     user = await get_current_user(token, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
 
     # 2. Logica: è una nuova chat o una continuazione?
     if request.chat_id is None:
@@ -265,7 +277,7 @@ async def chat_with_bot(
         ).first()
 
         if not chat_session:
-            raise HTTPException(status_code=404, detail="Chat non trovata o non autorizzata")
+            raise HTTPException(status_code=404, detail="Chat not found or not authorized")
         
         risposta_bot["title"] = chat_session.title
 
@@ -286,7 +298,7 @@ async def recognize_sign(
     token = authorization.replace("Bearer ", "") if authorization else ""
     user = await get_current_user(token, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
 
     try:
         # Applichiamo la matematica ai dati grezzi in arrivo dalla webcam
@@ -316,7 +328,7 @@ async def recognize_sign(
                 new_word = models.LearnedSign(
                     user_id=user.id, 
                     word=request.target_word.lower(), 
-                    instructions="Sbloccato con accuratezza >= 65%"
+                    instructions="Unlocked with accuracy >= 65%"
                 )
                 db.add(new_word)
                 db.commit()
@@ -329,7 +341,7 @@ async def recognize_sign(
         
     except Exception as e:
         traceback.print_exc() 
-        raise HTTPException(status_code=500, detail=f"Errore durante l'analisi visiva: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error during visual analysis: {str(e)}")
     
 
 @app.post("/recognize-letter")
@@ -344,7 +356,7 @@ async def recognize_letter(
     token = authorization.replace("Bearer ", "") if authorization else ""
     user = await get_current_user(token, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
 
     try:
         # Otteniamo il risultato base dal motore geometrico
@@ -365,7 +377,7 @@ async def recognize_letter(
                 new_word = models.LearnedSign(
                     user_id=user.id, 
                     word=request.target_word.lower(), 
-                    instructions="Sbloccato con accuratezza >= 65%"
+                    instructions="Unlocked with accuracy >= 65%"
                 )
                 db.add(new_word)
                 db.commit()
@@ -375,7 +387,8 @@ async def recognize_letter(
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Errore analisi Livello 1: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing Level 1: {str(e)}")
+    
 # ==========================================
 # ROTTA PER L'AUDIO
 # ==========================================
@@ -392,21 +405,21 @@ async def synthesize_audio_track(
 ):
     # Protezione della rotta opzionale
     if not authorization:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
 
     try:
         # Genera il buffer audio dalla nostra nuova funzione in bot_core
         audio_buffer = bot.generate_audio_stream(request.text)
         
         if not audio_buffer:
-             raise HTTPException(status_code=500, detail="Errore generazione audio")
+             raise HTTPException(status_code=500, detail="Error generating audio")
 
         # Restituisce lo stream al frontend specificando che è un file audio
         return StreamingResponse(audio_buffer, media_type="audio/wav")
         
     except Exception as e:
         print(e)
-        raise HTTPException(status_code=500, detail="Errore interno TTS")
+        raise HTTPException(status_code=500, detail="Internal Error TTS")
     
 
 
@@ -424,7 +437,7 @@ async def get_user_chats(
     user = await get_current_user(token, db)
     
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
     
     # Cerca nel database tutte le chat appartenenti all'utente loggato, ordinate dalla più recente
     chats = db.query(models.ChatSession)\
@@ -436,8 +449,8 @@ async def get_user_chats(
     return [
         {
             "id": str(chat.id), # Assicuriamoci che l'ID sia stringa per Vue
-            "title": chat.title or "Nuova Chat", # Fornisci un titolo di default se è vuoto
-            "date": chat.created_at.strftime("%Y-%m-%d") if chat.created_at else "Oggi" 
+            "title": chat.title or "New Chat", # Fornisci un titolo di default se è vuoto
+            "date": chat.created_at.strftime("%Y-%m-%d") if chat.created_at else "Today" 
         } 
         for chat in chats
     ]
@@ -453,7 +466,7 @@ async def get_chat_history_route(
     user = await get_current_user(token, db)
     
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
 
     # Prima controlla se la chat appartiene a questo utente per sicurezza
     chat_session = db.query(models.ChatSession).filter(
@@ -462,7 +475,7 @@ async def get_chat_history_route(
     ).first()
 
     if not chat_session:
-        raise HTTPException(status_code=404, detail="Chat non trovata o non autorizzata")
+        raise HTTPException(status_code=404, detail="Chat not found or not authorized")
 
     # Usa la funzione get_full_chat_history che avevi già nel bot_core
     messages = bot.get_full_chat_history(db, chat_id)
@@ -480,7 +493,7 @@ async def delete_chat(
     user = await get_current_user(token, db)
     
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
 
     # 1. Cerca la chat, assicurandoti che appartenga all'utente loggato
     chat_session = db.query(models.ChatSession).filter(
@@ -489,7 +502,7 @@ async def delete_chat(
     ).first()
 
     if not chat_session:
-        raise HTTPException(status_code=404, detail="Chat non trovata o non autorizzata")
+        raise HTTPException(status_code=404, detail="Chat not found or not authorized")
 
     try:
         # 2. ELIMINA PRIMA I MESSAGGI: Evita l'errore di Foreign Key in PostgreSQL
@@ -499,12 +512,12 @@ async def delete_chat(
         db.delete(chat_session)
         db.commit()
         
-        return {"message": "Chat eliminata con successo!"}
+        return {"message": "Chat deleted successfully!"}
         
     except Exception as e:
         db.rollback()
-        print(f"Errore durante l'eliminazione: {e}")
-        raise HTTPException(status_code=500, detail="Errore interno del server durante l'eliminazione")
+        print(f"Error during deletion: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during deletion")
 
 
 # ==========================================
@@ -529,7 +542,7 @@ async def get_unlocked_signs(
     token = authorization.replace("Bearer ", "") if authorization else ""
     user = await get_current_user(token, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
     
     # Cerca tutte le parole sbloccate dall'utente loggato
     learned_signs = db.query(models.LearnedSign).filter(models.LearnedSign.user_id == user.id).all()
@@ -547,17 +560,18 @@ class QuizResultSubmit(BaseModel):
 
 @app.get("/api/quiz/start")
 async def start_quiz(
-    difficulty: str = "mixed",  # default
+    categories: str = "",
+    difficulty: str = "mixed",  # fallback per vecchie chiamate
     db: Session = Depends(get_db), 
     authorization: str = Header(None)
 ):
     token = authorization.replace("Bearer ", "") if authorization else ""
     user = await get_current_user(token, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
     
-    # Passiamo correttamente 'difficulty' alla funzione del modulo quiz
-    quiz_data = quiz.generate_user_quiz(db, user.id, difficulty, NN_DICTIONARY, LETTERS_DICTIONARY)
+    selected_categories = categories or difficulty
+    quiz_data = quiz.generate_user_quiz(db, user.id, selected_categories, NN_DICTIONARY, LETTERS_DICTIONARY)
     
     # Se il controllo dei < 3 segni fallisce, restituiamo i dettagli dell'errore anziché un generico 400
     if quiz_data.get("status") == "error":
@@ -570,7 +584,7 @@ async def submit_quiz(data: QuizResultSubmit, db: Session = Depends(get_db), aut
     token = authorization.replace("Bearer ", "") if authorization else ""
     user = await get_current_user(token, db)
     if not user:
-        raise HTTPException(status_code=401, detail="Non autorizzato")
+        raise HTTPException(status_code=401, detail="Not authorized")
     
     # Aggiorna il punteggio totale dell'utente su Postgres
     user.score += data.score
@@ -578,7 +592,118 @@ async def submit_quiz(data: QuizResultSubmit, db: Session = Depends(get_db), aut
     db.refresh(user)
     
     return {
-        "message": "Punteggio del quiz salvato!",
+        "message": "Quiz score saved!",
         "added_score": data.score,
         "new_total_score": user.score
     }
+
+
+# ==========================================
+# ROTTA PER I SETTINGS
+# ==========================================
+
+
+# --- NUOVI SCHEMI PYDANTIC ---
+class ProfileUpdate(BaseModel):
+    nome: str
+    email: str
+
+class PasswordUpdate(BaseModel):
+    old_password: str
+    new_password: str
+
+# --- ROTTA PROFILO (Con controllo Email) ---
+@app.put("/update-profile")
+async def update_profile(
+    request: ProfileUpdate, 
+    db: Session = Depends(get_db), 
+    authorization: str = Header(None)
+):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    user = await get_current_user(token, db)
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authorized")
+    
+    # 1. Controllo di sicurezza lato server: la mail contiene la @?
+    if "@" not in request.email:
+        raise HTTPException(status_code=400, detail="Invalid email format. Missing '@'.")
+        
+    # 2. Controllo che la nuova email non sia già usata da qualcun altro
+    if request.email != user.email:
+        existing_user = db.query(models.User).filter(models.User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use")
+
+    user.nome = request.nome
+    user.email = request.email
+    db.commit()
+    
+    return {"message": "Profile updated successfully!"}
+
+# --- ROTTA PASSWORD (Con controllo Vecchia Password) ---
+@app.put("/update-password")
+async def update_password(
+    request: PasswordUpdate, 
+    db: Session = Depends(get_db), 
+    authorization: str = Header(None)
+):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    user = await get_current_user(token, db)
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authorized")
+        
+    # 1. CONTROLLO FONDAMENTALE: Verifichiamo che la vecchia password sia corretta
+    # Usa la funzione verify_password per confrontare quella inserita con l'hash nel DB
+    if not verify_password(request.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Error: The old password is incorrect.")
+        
+    # 2. Se è corretta, aggiorniamo con il nuovo hash
+    user.hashed_password = hash_password(request.new_password)
+    db.commit()
+    
+    return {"message": "Password updated successfully!"}
+
+
+@app.delete("/delete-account")
+async def delete_account(db: Session = Depends(get_db), authorization: str = Header(None)):
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    user = await get_current_user(token, db)
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authorized")
+
+    try:
+        # 1. Recuperiamo tutti gli ID delle chat dell'utente
+        chat_ids = [
+            chat.id for chat in 
+            db.query(models.ChatSession.id).filter(models.ChatSession.user_id == user.id).all()
+        ]
+        
+        # 2. Se l'utente ha delle chat, eliminiamo tutti i MESSAGGI al loro interno
+        if chat_ids:
+            db.query(models.ChatMessage).filter(
+                models.ChatMessage.session_id.in_(chat_ids)
+            ).delete(synchronize_session=False)
+        
+        # 3. Ora possiamo eliminare le SESSIONI CHAT (i contenitori dei messaggi)
+        db.query(models.ChatSession).filter(
+            models.ChatSession.user_id == user.id
+        ).delete(synchronize_session=False)
+        
+        # 4. Eliminiamo il DIZIONARIO PERSONALE (i segni sbloccati)
+        db.query(models.LearnedSign).filter(
+            models.LearnedSign.user_id == user.id
+        ).delete(synchronize_session=False)
+        
+        # 5. Infine, eliminiamo l'UTENTE in totale sicurezza
+        db.delete(user)
+        db.commit()
+        
+        return {"message": "Account and all associated data deleted successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error during account deletion: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during account deletion")

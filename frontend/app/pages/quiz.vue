@@ -15,19 +15,57 @@ const feedbackMessage = ref('')
 const feedbackType = ref('') 
 const errorMessage = ref('') 
 const isInfoModalOpen = ref(false)
-const selectedDifficulty = ref('')
+const isCameraInfoModalOpen = ref(false)
+const selectedCategories = ref([])
 const questions = ref([])
 const feedbackHints = ref([])
+let feedbackTimeout = null
 
-const difficultyLevels = ref([
-  { id: 'alphabet', title: 'Alphabet', description: 'Test yourself with the ASL alphabet letters.', icon: 'i-lucide-case-sensitive' },
-  { id: 'static', title: 'Static Signs', description: 'Practice with signs that do not require movement.', icon: 'i-lucide-hand' },
-  { id: 'dynamic', title: 'Dynamic Signs', description: 'Challenge yourself with signs that involve movement.', icon: 'i-lucide-move' },
-  { id: 'mixed', title: 'Mixed', description: 'The final test combining all types of signs.', icon: 'i-lucide-shuffle' }
+const quizCategories = ref([
+  { id: 'alphabet', title: 'Alphabet', description: 'Practice single letters of the alphabet.', icon: 'i-lucide-case-sensitive' },
+  { id: 'animals', title: 'Animals', description: 'All terms related to animals and insects.', icon: 'i-lucide-paw-print' },
+  { id: 'actions', title: 'Actions & Verbs', description: 'Physical actions, interactions, and movements.', icon: 'i-lucide-activity' },
+  { id: 'food', title: 'Food & Drinks', description: 'Food items, snacks, and beverages.', icon: 'i-lucide-utensils' },
+  { id: 'home', title: 'Home & Rooms', description: 'Rooms of the house, furniture, and household items.', icon: 'i-lucide-home' },
+  { id: 'objects', title: 'Objects & Toys', description: 'Everyday objects, toys, and small tools.', icon: 'i-lucide-package' },
+  { id: 'transport', title: 'Transport', description: 'Vehicles and modes of transportation.', icon: 'i-lucide-car' },
+  { id: 'people_professions', title: 'Family, People & Professions', description: 'Family members, professions, and general terms for people.', icon: 'i-lucide-users' },
+  { id: 'body', title: 'Body Parts', description: 'Anatomy and body parts.', icon: 'i-lucide-user' },
+  { id: 'colors', title: 'Colors', description: 'Colors and shades.', icon: 'i-lucide-palette' },
+  { id: 'nature', title: 'Nature & Places', description: 'Nature, weather, and physical spaces.', icon: 'i-lucide-tree-pine' },
+  { id: 'clothing', title: 'Clothing', description: 'Apparel and accessories.', icon: 'i-lucide-shirt' },
+  { id: 'emotions', title: 'Emotions, States & Adjectives', description: 'Feelings, conditions, and descriptive attributes.', icon: 'i-lucide-smile' },
+  { id: 'greetings', title: 'Greetings & Manners', description: 'Polite expressions, greetings, and basic communication.', icon: 'i-lucide-message-circle-heart' },
+  { id: 'other', title: 'Time, Questions, Adverbs & Other', description: 'Time concepts, pronouns, adverbs, and grammar words.', icon: 'i-lucide-help-circle' }
 ])
 
-const selectCategory = (id) => { 
-  selectedDifficulty.value = id 
+const mixedCategory = {
+  id: 'mixed',
+  title: 'Mixed',
+  description: 'Play with every unlocked sign across the whole dictionary.',
+  icon: 'i-lucide-shuffle'
+}
+
+const hasSelectedCategories = computed(() => selectedCategories.value.length > 0)
+const isMixedSelected = computed(() => selectedCategories.value.includes(mixedCategory.id))
+
+const selectMixedCategory = () => {
+  selectedCategories.value = [mixedCategory.id]
+  errorMessage.value = ''
+}
+
+const toggleCategory = (id) => {
+  if (isMixedSelected.value) {
+    selectedCategories.value = [id]
+    errorMessage.value = ''
+    return
+  }
+
+  if (selectedCategories.value.includes(id)) {
+    selectedCategories.value = selectedCategories.value.filter(categoryId => categoryId !== id)
+  } else {
+    selectedCategories.value = [...selectedCategories.value, id]
+  }
   errorMessage.value = '' // Pulisce istantaneamente l'errore quando si cambia scheda
 }
 const currentQuestion = computed(() => questions.value.length > 0 ? questions.value[currentQuestionIndex.value] : null)
@@ -144,10 +182,41 @@ const stopCamera = () => {
 }
 
 const startBuffering = () => {
+  clearFeedbackTimeout()
   signFrames.value = []
   feedbackMessage.value = ''
   feedbackType.value = ''
   appState.value = 'BUFFERING'
+}
+
+const stopBufferingEarly = () => {
+  if (appState.value === 'BUFFERING') {
+    if (signFrames.value.length >= MIN_FRAMES) {
+      submitSign() // Nel quiz submitSign non richiede parametri
+    } else {
+      appState.value = 'IDLE'
+      signFrames.value = []
+    }
+  }
+}
+
+const clearFeedbackTimeout = () => {
+  if (feedbackTimeout) {
+    clearTimeout(feedbackTimeout)
+    feedbackTimeout = null
+  }
+}
+
+const scheduleErrorFeedbackDismiss = () => {
+  clearFeedbackTimeout()
+  feedbackTimeout = setTimeout(() => {
+    if (feedbackType.value === 'error') {
+      feedbackMessage.value = ''
+      feedbackType.value = ''
+      feedbackHints.value = []
+    }
+    feedbackTimeout = null
+  }, 4000)
 }
 
 const submitSign = async () => {
@@ -178,13 +247,18 @@ const submitSign = async () => {
       stopCamera()
       setTimeout(nextQuestion, 2000)
     } else {
-      // MODIFICATO: Rimossa la riduzione dei tentativi (attemptsLeft.value--)
-      // per consentire sessioni di registrazione infinite fino al successo o al salto della domanda.
+      attemptsLeft.value--
       feedbackType.value = 'error'
       feedbackHints.value = response.feedback || []
       
-      // Nuovo messaggio esplicativo per guidare l'utente
-      feedbackMessage.value = `Wrong sign. AI detected "${response.predicted_word}" (${confidencePercent}%). Try again (Press [N]) or use "Skip Question" to move on.`
+      if (attemptsLeft.value > 0) {
+        feedbackMessage.value = `Wrong sign. AI detected "${response.predicted_word}" (${confidencePercent}%). You have ${attemptsLeft.value} attempt(s) left. Try again by pressing [N].`
+      } else {
+        feedbackMessage.value = `Out of attempts! AI detected "${response.predicted_word}" (${confidencePercent}%). Moving to the next question.`
+        stopCamera()
+        setTimeout(nextQuestion, 2500)
+      }
+      scheduleErrorFeedbackDismiss()
     }
   } catch (error) {
     console.error("Errore di inferenza:", error)
@@ -216,12 +290,13 @@ const handleKeyboard = (e) => {
 // GESTIONE FLUSSO DOMANDE
 // ==============================================
 const startQuiz = async () => {
-  if (!selectedDifficulty.value) return
+  if (!hasSelectedCategories.value) return
   
   errorMessage.value = ''
   try {
+    const categoriesParam = selectedCategories.value.map(category => encodeURIComponent(category)).join(',')
     // Chiamata corretta all'endpoint '/api/quiz/start' per evitare il 404
-    const response = await $fetch(`http://localhost:8000/api/quiz/start?difficulty=${selectedDifficulty.value}`, {
+    const response = await $fetch(`http://localhost:8000/api/quiz/start?categories=${categoriesParam}`, {
       method: 'GET',
       headers: { 'Authorization': token.value }
     })
@@ -247,6 +322,7 @@ const startQuiz = async () => {
         questionText: textPrompt,
         targetWord: q.target_word,
         targetMedia: q.target_media,
+        level: q.level,
         options: q.options.map((opt, i) => ({
           id: ['A', 'B', 'C', 'D'][i],
           label: opt.toUpperCase(),
@@ -283,7 +359,8 @@ const sendFinalScore = async () => {
 }
 
 const resetQuestionState = () => {
-  attemptsLeft.value = 3
+  clearFeedbackTimeout()
+  attemptsLeft.value = 5
   feedbackMessage.value = ''
   feedbackType.value = ''
   feedbackHints.value = []
@@ -303,10 +380,12 @@ const handleAnswer = (option) => {
     if (attemptsLeft.value > 0) {
       feedbackType.value = 'error'
       feedbackMessage.value = `Wrong. You have ${attemptsLeft.value} attempt(s) left.`
+      scheduleErrorFeedbackDismiss()
     } else {
       feedbackType.value = 'error'
       feedbackMessage.value = 'Out of attempts! Moving to the next question.'
       setTimeout(nextQuestion, 2500)
+      scheduleErrorFeedbackDismiss()
     }
   }
 }
@@ -328,7 +407,26 @@ const skipQuestion = () => {
   setTimeout(nextQuestion, 1500)
 }
 
-onBeforeUnmount(() => { stopCamera() })
+const resetQuizToIntro = () => {
+  stopCamera()
+  quizState.value = 'intro'
+  questions.value = []
+  currentQuestionIndex.value = 0
+  score.value = 0
+  resetQuestionState()
+}
+
+const exitQuiz = () => {
+  const isConfirmed = confirm("Are you sure you want to exit the quiz? Your current progress will be lost.")
+  if (!isConfirmed) return
+
+  resetQuizToIntro()
+}
+
+onBeforeUnmount(() => {
+  clearFeedbackTimeout()
+  stopCamera()
+})
 </script>
 
 <template>
@@ -342,14 +440,14 @@ onBeforeUnmount(() => { stopCamera() })
 
           <div v-if="quizState === 'intro'" class="w-full flex flex-col gap-8">
             
-            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 flex items-center justify-between shadow-sm w-full">
+            <div id="tour-quiz-header" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 flex items-center justify-between shadow-sm w-full">
               <div class="flex items-center gap-4">
                 <div class="bg-primary-100 dark:bg-primary-900/30 p-3 rounded-lg flex-shrink-0 flex items-center justify-center">
                   <UIcon name="i-lucide-brain" class="w-8 h-8 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
-                    <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Sign Quiz</h1>
+                    <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Quiz</h1>
                     <UButton 
                       icon="i-lucide-info" 
                       color="primary" 
@@ -359,31 +457,69 @@ onBeforeUnmount(() => { stopCamera() })
                       @click="isInfoModalOpen = true" 
                     />
                   </div>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Test yourself to consolidate the signs you have learned. Choose a category to start.</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Test yourself to consolidate the signs you have learned. Choose one or more categories to start.</p>
                 </div>
               </div>
             </div>
 
             <div class="mt-4 w-full">
-              <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-gray-200">Select Category</h2>
-              <div id="tour-quiz-cards" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-gray-200">Play Everything</h2>
+              <UCard
+                class="cursor-pointer transition-all duration-200 group border-2"
+                :class="[
+                  isMixedSelected
+                  ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 shadow-md ring-1 ring-primary-500'
+                  : 'border-gray-200 dark:border-gray-800 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm'
+                ]"
+                :ui="{ body: 'p-6 sm:p-8', rounded: 'rounded-2xl' }"
+                @click="selectMixedCategory"
+              >
+                <div class="flex items-start gap-5">
+                  <div
+                    class="p-4 rounded-full transition-colors"
+                    :class="[
+                      isMixedSelected
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/50 group-hover:text-primary-600'
+                    ]"
+                  >
+                    <UIcon :name="mixedCategory.icon" class="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3
+                      class="text-xl font-bold transition-colors"
+                      :class="isMixedSelected ? 'text-primary-700 dark:text-primary-400' : 'text-gray-900 dark:text-white group-hover:text-primary-600'"
+                    >
+                      {{ mixedCategory.title }}
+                    </h3>
+                    <p class="text-base text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+                      {{ mixedCategory.description }}
+                    </p>
+                  </div>
+                </div>
+              </UCard>
+            </div>
+
+            <div class="mt-4 w-full">
+              <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-gray-200">Select Categories</h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <UCard
-                  v-for="level in difficultyLevels"
+                  v-for="level in quizCategories"
                   :key="level.id"
                   class="cursor-pointer transition-all duration-200 group border-2"
                   :class="[
-                    selectedDifficulty === level.id
+                    selectedCategories.includes(level.id)
                     ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 shadow-md ring-1 ring-primary-500'
                     : 'border-gray-200 dark:border-gray-800 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm'
                   ]"
                   :ui="{ body: 'p-6 sm:p-8', rounded: 'rounded-2xl' }"
-                  @click="selectCategory(level.id)"
+                  @click="toggleCategory(level.id)"
                 >
                   <div class="flex items-start gap-5">
                     <div 
                       class="p-4 rounded-full transition-colors"
                       :class="[
-                        selectedDifficulty === level.id
+                        selectedCategories.includes(level.id)
                         ? 'bg-primary-500 text-white'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/50 group-hover:text-primary-600'
                       ]"
@@ -393,7 +529,7 @@ onBeforeUnmount(() => { stopCamera() })
                     <div>
                       <h3 
                         class="text-xl font-bold transition-colors"
-                        :class="selectedDifficulty === level.id ? 'text-primary-700 dark:text-primary-400' : 'text-gray-900 dark:text-white group-hover:text-primary-600'"
+                        :class="selectedCategories.includes(level.id) ? 'text-primary-700 dark:text-primary-400' : 'text-gray-900 dark:text-white group-hover:text-primary-600'"
                       >
                       {{ level.title }}
                       </h3>
@@ -420,11 +556,11 @@ onBeforeUnmount(() => { stopCamera() })
             <div class="flex justify-center mt-8">
               <UButton 
                 size="xl" 
-                color="primary" 
+                :color="hasSelectedCategories ? 'primary' : 'gray'"
                 variant="solid" 
                 class="px-12 py-4 text-xl font-bold shadow-md transition-all" 
-                :class="{ 'opacity-50 cursor-not-allowed': !selectedDifficulty, 'hover:scale-105': selectedDifficulty }"
-                :disabled="!selectedDifficulty"
+                :class="{ 'opacity-50 cursor-not-allowed': !hasSelectedCategories, 'hover:scale-105': hasSelectedCategories }"
+                :disabled="!hasSelectedCategories"
                 :ui="{ rounded: 'rounded-xl' }"
                 @click="startQuiz"
               > 
@@ -436,9 +572,21 @@ onBeforeUnmount(() => { stopCamera() })
 
           <div v-else-if="quizState === 'playing'" class="w-full max-w-5xl mx-auto flex flex-col flex-1 justify-center">
             <div class="mb-6">
-              <div class="flex justify-between text-base font-bold text-gray-500 mb-2 px-1">
+              <div class="flex items-center justify-between gap-3 text-base font-bold text-gray-500 mb-2 px-1">
                 <span>Question {{ currentQuestionIndex + 1 }} of {{ questions.length }}</span>
-                <span class="text-primary-600 dark:text-primary-400">Score: {{ score }}</span>
+                <div class="flex items-center gap-3">
+                  <span class="text-primary-600 dark:text-primary-400">Score: {{ score }}</span>
+                  <UButton
+                    color="red"
+                    variant="soft"
+                    size="sm"
+                    icon="i-lucide-log-out"
+                    class="font-bold px-4 py-2 rounded-xl border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 shadow-sm transition-all hover:scale-105 hover:bg-red-100 dark:hover:bg-red-900/40 hover:shadow-md"
+                    @click="exitQuiz"
+                  >
+                    Exit Quiz
+                  </UButton>
+                </div>
               </div>
               <UProgress :value="(currentQuestionIndex / questions.length) * 100" color="primary" size="sm" />
             </div>
@@ -509,7 +657,7 @@ onBeforeUnmount(() => { stopCamera() })
                     v-for="option in currentQuestion.options" 
                     :key="option.id"
                     size="lg" color="gray" variant="outline"
-                    class="justify-center text-lg md:text-xl font-bold py-4 rounded-xl hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-600 transition-colors shadow-sm"
+                    class="justify-center text-lg md:text-xl font-bold py-4 rounded-xl border-2 border-gray-300 dark:border-gray-700 hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-600 hover:shadow-lg transition-all shadow-sm"
                     @click="handleAnswer(option)"
                   >
                     {{ option.label }}
@@ -534,40 +682,96 @@ onBeforeUnmount(() => { stopCamera() })
                   {{ currentQuestion.targetWord }}
                 </h3>
 
-                <div class="w-full aspect-video bg-black rounded-2xl flex items-center justify-center overflow-hidden border-4 border-gray-200 dark:border-gray-700 relative shadow-lg">
+                <div class="w-full aspect-video bg-black rounded-2xl flex flex-col overflow-hidden border-4 border-gray-200 dark:border-gray-700 relative shadow-lg">
                   
-                  <div v-if="!isCameraActive" class="text-center text-white p-6">
-                    <UIcon name="i-lucide-camera-off" class="w-12 h-12 mx-auto mb-3 text-gray-500" />
-                    <p class="text-xl font-bold mb-4">The camera is off.</p>
-                    <UButton size="md" color="primary" class="px-6 py-3 text-base font-bold rounded-lg shadow" @click="activateCamera">
-                      Activate Camera
-                    </UButton>
-                  </div>
-
-                  <div v-else class="w-full h-full relative flex items-center justify-center">
-                    <video ref="videoElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1]" autoplay playsinline></video>
-                    <canvas ref="canvasElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1] pointer-events-none z-10"></canvas>
-                    
-                    <div class="absolute top-4 left-4 z-20 bg-black/80 px-4 py-2 rounded-xl text-white font-mono text-xs space-y-1 border border-gray-700 shadow-md">
-                      <p v-if="appState === 'IDLE'" class="text-yellow-400 font-bold flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span> IDLE - Press [N] to Record - [SPACE] to Submit
-                      </p>
-                      <p v-else class="text-blue-400 font-bold flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span> RECORDING ({{ signFrames.length }}/{{ maxFrames }})
-                      </p>
-                    </div>
-
-                    <div v-if="isPredicting" class="absolute inset-0 z-15 bg-black/50 flex items-center justify-center">
-                      <UIcon name="i-lucide-loader-2" class="w-16 h-16 text-primary-500 animate-spin" />
-                    </div>
-
-                    <div class="absolute bottom-0 left-0 h-1.5 bg-gray-800 w-full z-20">
-                      <div class="h-full bg-blue-500 transition-all duration-75" :style="{ width: `${(signFrames.length / maxFrames) * 100}%` }"></div>
+                  <div v-if="!isCameraActive" class="flex-1 flex items-center justify-center text-center text-white p-6">
+                    <div>
+                      <UIcon name="i-lucide-camera-off" class="w-12 h-12 mx-auto mb-3 text-gray-500" />
+                      <p class="text-xl font-bold mb-4">The camera is off.</p>
+                      <UButton size="md" color="primary" class="px-6 py-3 text-base font-bold rounded-lg shadow" @click="activateCamera">
+                        Activate Camera
+                      </UButton>
                     </div>
                   </div>
+
+                  <template v-else>
+                    <div class="flex-1 w-full relative flex items-center justify-center">
+                      <video ref="videoElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1]" autoplay playsinline></video>
+                      <canvas ref="canvasElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1] pointer-events-none z-10"></canvas>
+
+                      <div v-if="isPredicting" class="absolute inset-0 z-15 bg-black/50 flex items-center justify-center">
+                        <UIcon name="i-lucide-loader-2" class="w-16 h-16 text-primary-500 animate-spin" />
+                      </div>
+                    </div>
+
+                    <div class="relative bg-gray-900 border-t border-gray-800 z-20 flex flex-col shrink-0">
+                      <div class="absolute top-0 left-0 h-1.5 bg-gray-800 w-full">
+                        <div class="h-full transition-all duration-75" :class="signFrames.length === maxFrames ? 'bg-green-500' : 'bg-blue-500'" :style="{ width: `${(signFrames.length / maxFrames) * 100}%` }"></div>
+                      </div>
+                      
+                      <div class="flex flex-col sm:flex-row items-center justify-between px-4 py-3 w-full mt-1 gap-3 sm:gap-0">
+                        
+                        <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-center sm:justify-start">
+                          
+                          <div class="flex items-center text-xs font-mono font-bold mr-1" :class="appState === 'IDLE' ? 'text-yellow-400' : 'text-blue-400'">
+                            <div class="w-2 h-2 rounded-full mr-2 animate-pulse" :class="appState === 'IDLE' ? 'bg-yellow-400' : 'bg-blue-400'"></div>
+                            <span>{{ appState === 'IDLE' ? 'IDLE' : 'REC' }}</span>
+                          </div>
+
+                          <UButton 
+                            icon="i-lucide-video" 
+                            class="font-bold shadow transition-all text-white"
+                            :class="appState === 'IDLE' ? '!bg-green-600 hover:!bg-green-500 hover:scale-105' : '!bg-gray-600 hover:!bg-gray-600 opacity-50 cursor-not-allowed'"
+                            :disabled="appState === 'BUFFERING'"
+                            @click="startBuffering"
+                          >
+                            Start <span class="hidden md:inline">[N]</span>
+                          </UButton>
+                          
+                          <UButton 
+                            icon="i-lucide-square" 
+                            class="font-bold shadow transition-all text-white"
+                            :class="appState === 'BUFFERING' ? '!bg-red-600 hover:!bg-red-500 hover:scale-105' : '!bg-gray-600 hover:!bg-gray-600 opacity-50 cursor-not-allowed'"
+                            :disabled="appState === 'IDLE'"
+                            @click="stopBufferingEarly"
+                          >
+                            Stop <span class="hidden md:inline">[Space]</span>
+                          </UButton>
+
+                          <UButton 
+                            :icon="showLandmarks ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                            class="font-bold shadow transition-all text-white hover:scale-105"
+                            :class="showLandmarks ? '!bg-green-600 hover:!bg-green-500' : '!bg-gray-600 hover:!bg-gray-500'"
+                            @click="showLandmarks = !showLandmarks"
+                          >
+                            Skeleton: {{ showLandmarks ? 'ON' : 'OFF' }} <span class="hidden md:inline">[L]</span>
+                          </UButton>
+
+                          <UButton 
+                            color="gray" 
+                            variant="ghost" 
+                            icon="i-lucide-help-circle" 
+                            class="text-gray-400 hover:text-white"
+                            @click="isCameraInfoModalOpen = true"
+                          />
+                        </div>
+
+                        <div class="w-full sm:w-auto flex justify-center sm:justify-end">
+                          <UButton 
+                            icon="i-lucide-power-off" 
+                            class="font-bold shadow-md text-white px-6 py-2 transition-colors !bg-red-600 hover:!bg-red-700"
+                            @click="stopCamera"
+                          >
+                            Exit <span class="hidden md:inline">[Q]</span>
+                          </UButton> 
+                        </div>
+
+                      </div>
+                    </div>
+                  </template>
                 </div>
 
-                <UButton v-if="!showHint" color="amber" variant="soft" size="md" icon="i-lucide-help-circle" class="font-bold py-2 px-4 mt-2 rounded-lg" @click="showHint = true">
+                <UButton v-if="!showHint" color="amber" variant="soft" size="md" icon="i-lucide-help-circle" class="font-bold py-2 px-5 mt-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 shadow-sm transition-all hover:scale-105 hover:bg-amber-100 dark:hover:bg-amber-900/40 hover:shadow-md" @click="showHint = true">
                   Don't remember the sign? Watch the hint
                 </UButton>
 
@@ -618,7 +822,7 @@ onBeforeUnmount(() => { stopCamera() })
                 </div>
 
                 <div class="flex flex-col sm:flex-row justify-center gap-3">
-                  <UButton size="lg" color="gray" variant="solid" class="px-6 py-2 text-base font-bold rounded-xl" to="/homepage">Back to Home</UButton>
+                  <UButton size="lg" color="gray" variant="solid" class="px-6 py-2 text-base font-bold rounded-xl border-2 border-gray-300 dark:border-gray-700 shadow-sm hover:border-primary-500 hover:shadow-lg transition-all" @click="resetQuizToIntro">Back to Quiz</UButton>
                   <UButton size="lg" color="primary" icon="i-lucide-rotate-ccw" class="px-6 py-2 text-base font-bold rounded-xl shadow" @click="startQuiz">Retake Quiz</UButton>
                 </div>
               </div>
@@ -657,7 +861,7 @@ onBeforeUnmount(() => { stopCamera() })
                     <div>
                       <h4 class="font-bold text-gray-900 dark:text-white text-lg">Choose your Challenge</h4>
                       <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
-                        Select a category between <b>Alphabet</b>, <b>Static Signs</b>, <b>Dynamic Signs</b>, or <b>Mixed</b>. You will only be tested on signs you have successfully unlocked in the Chatbot!
+                        Select <b>Mixed</b> to play with the whole dictionary, or choose one or more categories such as <b>Animals</b>, <b>Food & Drinks</b>, or <b>Transport</b>. You will only be tested on signs you have successfully unlocked in the Chatbot!
                       </p>
                     </div>
                   </div>
@@ -669,7 +873,7 @@ onBeforeUnmount(() => { stopCamera() })
                     <div>
                       <h4 class="font-bold text-gray-900 dark:text-white text-lg">Multiple Formats</h4>
                       <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
-                        Answer multiple-choice questions by matching words to signs or signs to words. You have <b>3 attempts</b> for these standard questions.
+                        Answer multiple-choice questions by matching words to signs or signs to words. You have <b>5 attempts</b> for each question.
                       </p>
                     </div>
                   </div>
@@ -681,7 +885,7 @@ onBeforeUnmount(() => { stopCamera() })
                     <div>
                       <h4 class="font-bold text-gray-900 dark:text-white text-lg">Webcam Recognition</h4>
                       <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
-                        For the ultimate test, the AI will ask you to perform a sign live! You have <b>unlimited attempts</b> to get it right. Read the correction hints or use "Skip Question" if you get stuck.
+                        For the ultimate test, the AI will ask you to perform a sign live! Read the correction hints or use "Skip Question" if you get stuck.
                       </p>
                     </div>
                   </div>
@@ -731,6 +935,41 @@ onBeforeUnmount(() => { stopCamera() })
                 </template>
               </UAlert>
             </div>
+          </div>
+        </transition>
+        <transition name="info-fade">
+          <div v-if="isCameraInfoModalOpen" class="fixed inset-0 z-[996] flex items-center justify-center bg-gray-950/70 backdrop-blur-sm p-4 sm:p-6" @click.self="isCameraInfoModalOpen = false">
+            <UCard class="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden" :ui="{ divide: 'divide-y divide-gray-100 dark:divide-gray-800', body: 'p-6' }">
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-primary-600 dark:text-primary-400">
+                    <UIcon name="i-lucide-video" class="w-6 h-6" />
+                    <h3 class="text-xl font-black tracking-wide uppercase text-gray-900 dark:text-white">Recording Guide</h3>
+                  </div>
+                  <UButton color="gray" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isCameraInfoModalOpen = false" />
+                </div>
+              </template>
+              
+              <div class="space-y-4 py-2 text-gray-900 dark:text-gray-300 text-sm leading-relaxed">
+                <p>
+                  To get the best results from the <b>Sign Recognition</b>, here is how you should record your sign:
+                </p>
+                <ul class="list-disc list-inside space-y-3 mt-4">
+                  <li>Click <b>Start</b> (or press [N]) to begin capturing your movement.</li>
+                  <li><b class="text-gray-900 dark:text-white">Continuous Mode:</b> You can repeat the sign continuously until the buffer progress bar reaches the end. The Sign Tutor will analyze the whole sequence.</li>
+                  <li><b class="text-gray-900 dark:text-white">Single Mode:</b> If you prefer to perform the sign just once, do it clearly and immediately click <b>Stop</b> (or press Spacebar) to let the Sign Tutor evaluate your recording early.</li>
+                </ul>
+                <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-400 font-medium text-xs">
+                  <UIcon name="i-lucide-alert-triangle" class="inline w-4 h-4 mr-1 align-text-bottom" /> Make sure your hands and face are clearly visible!
+                </div>
+              </div>
+
+              <template #footer>
+                <div class="flex justify-end">
+                  <UButton color="primary" variant="solid" size="md" class="px-6 py-2.5 font-bold rounded-xl shadow-md" @click="isCameraInfoModalOpen = false">Understood</UButton>
+                </div>
+              </template>
+            </UCard>
           </div>
         </transition>
       </Teleport>

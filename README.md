@@ -1,4 +1,4 @@
-# DuoSigna-HeuristicEvaluation
+# DuoSigna-FinalVersion
 
 Welcome to DuoSigna! This document contains all the step-by-step instructions to install the dependencies and properly start the local development environment (Python Backend and Nuxt 3 Frontend).
 

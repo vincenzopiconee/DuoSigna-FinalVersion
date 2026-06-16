@@ -4,8 +4,8 @@
       
       <AppSidebar />
 
-      <div class="flex-1 px-4 lg:px-8 py-12 w-full">
-        <div class="max-w-6xl mx-auto flex flex-col gap-16 lg:gap-12">
+      <div class="flex-1 px-4 lg:px-8 py-12 lg:py-16 w-full">
+        <div class="max-w-6xl mx-auto flex flex-col gap-20 lg:gap-28">
           
           <div id="tour-welcome-card" v-if="status === 'authenticated'" class="bg-primary-50 dark:bg-primary-900/20 p-6 rounded-2xl border border-primary-100 dark:border-primary-800 flex justify-between items-center">
             <div>
@@ -31,29 +31,29 @@
           </div>
 
           <div class="flex flex-col lg:flex-row items-center w-full gap-8 lg:gap-16">        
-            <UCard class="w-full lg:w-1/2 h-64 lg:h-96 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-shadow border-t-4 border-t-transparent hover:border-t-primary-500 duration-300">
+            <UCard class="w-full lg:w-2/5 h-48 lg:h-72 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-shadow border-t-4 border-t-transparent hover:border-t-primary-500 duration-300">
               <UIcon name="i-lucide-bot" class="w-24 h-24 lg:w-40 lg:h-40 text-primary-500 mx-auto transition-colors duration-300" />
             </UCard>
-            <div class="w-full lg:w-1/2 flex flex-col items-start text-left">
+            <div class="w-full lg:w-3/5 flex flex-col items-start text-left">
               <h2 class="text-3xl lg:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-                AI Sign Tutor
+                Sign Tutor
               </h2>
               <p class="text-lg text-gray-600 dark:text-gray-400 mb-8 leading-relaxed text-justify">
-                Your personal AI guide for American Sign Language. Ask about grammar, discover how to perform specific signs through video and GIF references, and use the real-time webcam recognition to test your skills and track your progress.
+                Your personal AI guide for American Sign Language. Discover how to perform specific signs through video and GIF references, and use the real-time webcam recognition to test your skills and track your progress.
               </p>
               <UButton size="xl" color="primary" variant="solid" class="px-8 py-4 text-lg" to="/chatbot">
-                Access ChatBot
+                Access Sign Tutor
               </UButton>
             </div>
           </div>
 
           <div class="flex flex-col lg:flex-row-reverse items-center w-full gap-8 lg:gap-16">        
-            <UCard class="w-full lg:w-1/2 h-64 lg:h-96 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-shadow border-t-4 border-t-transparent hover:border-t-primary-500 duration-300">
+            <UCard class="w-full lg:w-2/5 h-48 lg:h-72 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-shadow border-t-4 border-t-transparent hover:border-t-primary-500 duration-300">
               <UIcon name="i-lucide-book-open" class="w-24 h-24 lg:w-40 lg:h-40 text-primary-500 mx-auto transition-colors duration-300" />
             </UCard>
-            <div class="w-full lg:w-1/2 flex flex-col items-start lg:items-end text-left lg:text-right">
+            <div class="w-full lg:w-3/5 flex flex-col items-start lg:items-end text-left lg:text-right">
               <h2 class="text-3xl lg:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-                Sign Dictionary
+                Dictionary
               </h2>
               <p class="text-lg text-gray-600 dark:text-gray-400 mb-8 leading-relaxed text-justify">
                 Explore the entire collection of available signs. Keep track of your progress, discover which words you have already unlocked, and review the descriptions to execute them perfectly.
@@ -65,12 +65,12 @@
           </div>
 
           <div class="flex flex-col lg:flex-row items-center w-full gap-8 lg:gap-16">
-            <UCard class="w-full lg:w-1/2 h-64 lg:h-96 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-shadow border-t-4 border-t-transparent hover:border-t-primary-500 duration-300">
+            <UCard class="w-full lg:w-2/5 h-48 lg:h-72 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-shadow border-t-4 border-t-transparent hover:border-t-primary-500 duration-300">
               <UIcon name="i-lucide-brain" class="w-24 h-24 lg:w-40 lg:h-40 text-primary-500 mx-auto transition-colors duration-300" />
             </UCard>
-            <div class="w-full lg:w-1/2 flex flex-col items-start text-left">
+            <div class="w-full lg:w-3/5 flex flex-col items-start text-left">
               <h2 class="text-3xl lg:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
-                Interactive Quiz
+                Quiz
               </h2>
               <p class="text-lg text-gray-600 dark:text-gray-400 mb-8 leading-relaxed text-justify">
                 Test your skills. Frame your hands with the camera and complete the challenges 
@@ -92,12 +92,12 @@
 import { onMounted, watch } from 'vue'
 
 const { data: user, status } = useAuth()
-const { startTour } = useOnboarding()
+const { startTour, isOnboardingActive } = useOnboarding()
 
 // Usiamo un piccolo trick: controlliamo se l'utente esiste E se ha l'onboarding a false
 onMounted(() => {
   // Se la sessione è già caricata quando si entra in homepage
-  if (status.value === 'authenticated' && user.value?.has_completed_onboarding === false) {
+  if (status.value === 'authenticated' && user.value?.has_completed_onboarding === false && !isOnboardingActive.value) {
     setTimeout(() => {
       startTour()
     }, 500)
@@ -106,7 +106,7 @@ onMounted(() => {
 
 // Nel caso la richiesta /me ci metta un istante in più a caricare
 watch(status, (newStatus) => {
-  if (newStatus === 'authenticated' && user.value?.has_completed_onboarding === false) {
+  if (newStatus === 'authenticated' && user.value?.has_completed_onboarding === false && !isOnboardingActive.value) {
     setTimeout(() => {
       startTour()
     }, 500)

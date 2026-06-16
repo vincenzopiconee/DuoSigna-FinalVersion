@@ -419,7 +419,7 @@ def chat(client, user_input, db_session, user_id, chat_id, is_new_chat):
 
 
     # --- VIDEO or GIF PROPOSE ---
-
+    
     # Translation video/gif management
     if purpose == 'translation':
         # Create link if not present
@@ -429,15 +429,23 @@ def chat(client, user_input, db_session, user_id, chat_id, is_new_chat):
         # Retrieve gif if present
         elif level == "level_1" or level == "level_2": 
             video_link_or_gif = f"gif_output/{final_target_word}.gif"
+            
+        # AGGIUNTO: Fallback se la parola non è stata trovata (level è vuoto)
+        else:
+            video_link_or_gif = None
 
-    # Fallback               
+    # Fallback per domande generali             
     else:
         video_link_or_gif = None
 
 
 
     # Save bot answer to database
-    save_chat_message(db_session, chat_id, "assistant", answer, purpose, target_word, level, video_link_or_gif)
+    # --- MODIFICA: Usiamo la parola alternativa suggerita (se esiste) al posto di quella originale
+    actual_target = final_target_word if purpose == 'translation' and final_target_word else target_word
+
+    # Save bot answer to database
+    save_chat_message(db_session, chat_id, "assistant", answer, purpose, actual_target, level, video_link_or_gif)
     chat_history.append({"role": "assistant", "content": answer})
 
     
@@ -462,7 +470,7 @@ def chat(client, user_input, db_session, user_id, chat_id, is_new_chat):
         "chat_id": chat_id,
         "answer": answer,
         "purpose": purpose,
-        "target_word": target_word,
+        "target_word": actual_target,
         "updated_history": chat_history,
         "title": title,
         "video_link_or_gif": video_link_or_gif,

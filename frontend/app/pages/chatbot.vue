@@ -12,8 +12,11 @@ const chatContainer = ref(null)
 
 const messages = useState('chat-messages', () => []) 
 const chatId = useState('chat-id', () => null) 
+const pendingLearningSign = useState('pending-learning-sign', () => null)
 
 const chatList = ref([])
+const isDeleteChatModalOpen = ref(false)
+const chatToDelete = ref(null)
 
 const fetchChatHistoryList = async () => {
   try {
@@ -25,10 +28,6 @@ const fetchChatHistoryList = async () => {
     console.error("Errore nel recupero della lista chat:", error)
   }
 }
-
-onMounted(() => {
-  fetchChatHistoryList()
-})
 
 const startNewChat = () => {
   messages.value = []
@@ -62,10 +61,18 @@ const loadChat = async (selectedChatId) => {
   }
 }
 
-const deleteChat = async (idToDelete) => {
-  // Chiediamo conferma per evitare click accidentali
-  const isConfirmed = confirm("Are you sure you want to delete this chat?")
-  if (!isConfirmed) return
+// Apre semplicemente la modale e si "segna" quale chat eliminare
+const deleteChat = (idToDelete) => {
+  chatToDelete.value = idToDelete
+  isDeleteChatModalOpen.value = true
+}
+
+// Esegue l'eliminazione vera e propria quando l'utente clicca "Yes"
+const confirmDeleteChat = async () => {
+  if (!chatToDelete.value) return
+  
+  const idToDelete = chatToDelete.value
+  isDeleteChatModalOpen.value = false // Chiude la modale
 
   try {
     // Chiamata DELETE al backend
@@ -74,18 +81,20 @@ const deleteChat = async (idToDelete) => {
       headers: { 'Authorization': token.value }
     })
 
-    // Rimuoviamo la chat eliminata dalla lista visibile nella sidebar
+    // Rimuoviamo la chat eliminata dalla lista
     chatList.value = chatList.value.filter(chat => chat.id !== idToDelete)
 
-    // Se l'utente ha appena eliminato la chat che stava attualmente guardando, 
-    // resettiamo la schermata centrale su "Nuova Chat"
+    // Se l'utente stava guardando proprio questa chat, resettiamo la vista
     if (chatId.value === idToDelete) {
       startNewChat()
     }
     
   } catch (error) {
     console.error("Error deleting chat:", error)
-    alert("There was an error deleting the chat. Please try again.")
+    // Mostriamo un piccolo alert di fallback solo se il server va in crash
+    alert("There was an error deleting the chat. Please try again.") 
+  } finally {
+    chatToDelete.value = null // Pulizia
   }
 }
 
@@ -96,8 +105,8 @@ const scrollToBottom = async () => {
   }
 }
 
-const sendMessage = async () => {
-  const userText = searchQuery.value.trim()
+const sendMessage = async (messageText = null) => {
+  const userText = (typeof messageText === 'string' ? messageText : searchQuery.value).trim()
   if (!userText || isLoading.value) return
 
   searchQuery.value = ''
@@ -140,6 +149,17 @@ const sendMessage = async () => {
   }
 }
 
+onMounted(async () => {
+  await fetchChatHistoryList()
+
+  const signToLearn = pendingLearningSign.value
+  if (!signToLearn) return
+
+  pendingLearningSign.value = null
+  startNewChat()
+  await sendMessage(`How do I sign "${signToLearn}"?`)
+})
+
 // ==============================================
 // FUNZIONI DI UTILITÀ MULTIMEDIALE
 // ==============================================
@@ -173,6 +193,9 @@ const getMediaUrl = (url) => {
 // ==============================================
 const isCameraModalOpen = ref(false)
 const isInfoModalOpen = ref(false)
+const isCameraInfoModalOpen = ref(false)
+
+const cameraError = ref(false)
 
 const videoElement = ref(null)
 const canvasElement = ref(null)
@@ -283,11 +306,10 @@ const onResults = (results) => {
 }
 
 const activateCamera = async () => {
-  // --- NUOVA RIGA: Togliamo il focus dalla barra di testo ---
+  // Togliamo il focus dalla barra di testo
   if (document.activeElement && document.activeElement.blur) {
     document.activeElement.blur()
   }
-  // ---------------------------------------------------------
 
   isCameraModalOpen.value = true
   appState.value = 'IDLE'
@@ -298,7 +320,21 @@ const activateCamera = async () => {
   feedbackHints.value = [] 
   showSuccessAlert.value = false 
   showWarningAlert.value = false
+  cameraError.value = false // <-- Resettiamo l'errore ad ogni avvio
   
+  // --- NUOVO BLOCCO CONTROLLO PERMESSI ---
+  try {
+    // Chiediamo esplicitamente l'accesso. Se l'utente clicca "Blocca", questo throwerà un errore.
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+    // Se ha accettato, chiudiamo subito lo stream di test. MediaPipe aprirà il suo in modo pulito.
+    stream.getTracks().forEach(track => track.stop())
+  } catch (err) {
+    console.error("Accesso alla fotocamera negato o non disponibile:", err)
+    cameraError.value = true // Attiviamo la schermata di errore
+    return // Blocchiamo l'avvio di MediaPipe
+  }
+  // ---------------------------------------
+
   await nextTick() 
   if (canvasElement.value) canvasCtx.value = canvasElement.value.getContext('2d')
 
@@ -368,6 +404,18 @@ const startBuffering = () => {
   isPredictionCorrect.value = null
   
   appState.value = 'BUFFERING'
+}
+
+const stopBufferingEarly = () => {
+  if (appState.value === 'BUFFERING') {
+    if (signFrames.value.length >= MIN_FRAMES) {
+      submitSign(true)
+    } else {
+      // Se l'utente clicca stop quasi istantaneamente, resettiamo il buffer
+      appState.value = 'IDLE'
+      signFrames.value = []
+    }
+  }
 }
 
 const submitSign = async (returnToIdle = true) => {
@@ -542,10 +590,10 @@ onBeforeUnmount(() => {
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">AI Sign Tutor</h1>
+                  <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Sign Tutor</h1>
                   <UButton icon="i-lucide-info" color="primary" variant="ghost" size="xs" class="rounded-full hover:scale-110 transition-transform" @click="isInfoModalOpen = true" />
                 </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Ask me how to sign a word or ask a question about ASL grammar.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-300">Ask me how to sign a word or ask a question about ASL grammar.</p>
               </div>
             </div>
           </div>
@@ -553,10 +601,10 @@ onBeforeUnmount(() => {
           <div class="flex-1 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col relative">
             <div ref="chatContainer" class="flex-1 overflow-y-auto p-6 scroll-smooth" :class="messages.length === 0 ? 'flex flex-col items-center justify-center' : 'space-y-6'">
               
-              <div v-if="messages.length === 0" class="flex flex-col items-center justify-center text-center opacity-60">
-                <UIcon name="i-lucide-messages-square" class="w-20 h-20 mb-4 text-gray-400" />
-                <p class="text-lg font-medium text-gray-600 dark:text-gray-300">The chat is empty.</p>
-                <p class="text-sm text-gray-500">Type "How do you sign Airplane?" to start.</p>
+              <div v-if="messages.length === 0" class="flex flex-col items-center justify-center text-center opacity-80 mt-6">
+                <UIcon name="i-lucide-messages-square" class="w-20 h-20 mb-4 text-gray-400 dark:text-gray-500" />
+                <p class="text-lg font-bold text-gray-600 dark:text-gray-200">The chat is empty.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Type "How do you sign Airplane?" to start.</p>
               </div>
 
               <div v-for="(msg, index) in messages" :key="index" :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
@@ -564,7 +612,7 @@ onBeforeUnmount(() => {
                   <p class="text-base">{{ msg.content }}</p>
                 </div>
 
-                <div v-else class="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-6 py-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-sm group relative">
+                <div v-else class="bg-gray-100 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-600 px-6 py-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-sm group relative">
                   
                   <div class="flex items-center gap-3 mb-3">
                     <UBadge 
@@ -572,7 +620,7 @@ onBeforeUnmount(() => {
                       color="primary" 
                       variant="soft" 
                       size="md" 
-                      class="font-black uppercase tracking-widest shadow-sm"
+                      class="font-black uppercase tracking-widest shadow-sm dark:bg-primary-900/60 dark:text-primary-300"
                     >
                       Target: {{ msg.target_word }}
                     </UBadge>
@@ -580,10 +628,10 @@ onBeforeUnmount(() => {
                     <UButton
                       v-if="isPlayingAudioFor !== index"
                       icon="i-lucide-volume-2"
-                      color="white"
-                      variant="solid"
+                      color="primary"
+                      variant="soft"
                       size="sm"
-                      class="rounded-lg font-bold shadow-sm transition-all hover:scale-105"
+                      class="rounded-lg font-bold shadow-sm transition-all hover:scale-105 dark:bg-primary-900/50 dark:text-primary-300 dark:hover:bg-primary-900/80"
                       :disabled="isPlayingAudioFor !== null"
                       @click="toggleAudio(msg.content, index)"
                     >
@@ -596,7 +644,7 @@ onBeforeUnmount(() => {
                       color="red"
                       variant="soft"
                       size="sm"
-                      class="rounded-lg font-bold shadow-sm transition-all hover:scale-105"
+                      class="rounded-lg font-bold shadow-sm transition-all hover:scale-105 dark:bg-red-900/50 dark:text-red-300"
                       :loading="isAudioLoading"
                       @click="toggleAudio(msg.content, index)"
                     >
@@ -604,7 +652,7 @@ onBeforeUnmount(() => {
                     </UButton>
                   </div>
 
-                  <p class="text-base text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">{{ msg.content }}</p>
+                  <p class="text-base text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">{{ msg.content }}</p>
                   
                   <div v-if="msg.video_link_or_gif && msg.video_link_or_gif !== 'null'" class="mt-4 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm max-w-md">
                     <div v-if="isYouTube(msg.video_link_or_gif)" class="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
@@ -631,10 +679,30 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div id="tour-chat-input" class="p-4 bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800">
+            <div id="tour-chat-input" class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
               <form @submit.prevent="sendMessage" class="flex gap-3">
-                <UInput v-model="searchQuery" placeholder="Type your question here..." size="xl" class="flex-1" :disabled="isLoading" autocomplete="off" :ui="{ rounded: 'rounded-xl' }" />
-                <UButton type="submit" color="primary" size="xl" icon="i-lucide-send" :loading="isLoading" :disabled="!searchQuery" class="px-6 rounded-xl font-bold shadow-md hover:scale-105 transition-transform">
+                <UInput 
+                  v-model="searchQuery" 
+                  placeholder="Type your question here..." 
+                  size="xl" 
+                  class="flex-1" 
+                  :disabled="isLoading" 
+                  autocomplete="off" 
+                  :ui="{ 
+                    rounded: 'rounded-xl', 
+                    color: { white: { outline: 'bg-white dark:bg-gray-800 ring-gray-300 dark:ring-gray-600 text-gray-900 dark:text-white' } } 
+                  }" 
+                />
+                
+                <UButton 
+                  type="submit" 
+                  color="primary" 
+                  size="xl" 
+                  icon="i-lucide-send" 
+                  :loading="isLoading" 
+                  :disabled="!searchQuery" 
+                  class="px-8 rounded-xl font-bold shadow-md hover:scale-105 transition-transform dark:bg-primary-500 dark:text-white dark:hover:bg-primary-400 disabled:opacity-50 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
+                >
                   Send
                 </UButton>
               </form>
@@ -649,7 +717,7 @@ onBeforeUnmount(() => {
                     <UIcon name="i-lucide-camera" class="w-8 h-8 text-primary-600 dark:text-primary-400" />
                   </div>
                   <div>
-                    <h4 class="font-bold text-lg text-gray-900 dark:text-white mb-1">Do you want to check if you learned it correctly?</h4>
+                    <h4 class="font-bold text-lg text-gray-900 dark:text-white mb-1">Do you want to check if you learned <span class="text-primary-600 dark:text-primary-400 uppercase">"{{ currentTargetWord }}"</span> correctly?</h4>
                     <p class="text-sm text-gray-600 dark:text-gray-400">Activate the camera, repeat the sign, and get real-time feedback.</p>
                   </div>
                 </div>
@@ -776,11 +844,30 @@ onBeforeUnmount(() => {
               </transition>
 
               <div class="flex-1 w-full bg-black flex items-center justify-center relative overflow-hidden">
-                <video ref="videoElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1]" autoplay playsinline></video>
-                <canvas ref="canvasElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1] pointer-events-none z-10"></canvas>
-                <div v-if="isPredicting" class="absolute inset-0 z-15 bg-black/40 flex items-center justify-center">
-                  <UIcon name="i-lucide-loader-2" class="w-16 h-16 text-primary-500 animate-spin" />
+                
+                <div v-if="cameraError" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-900 p-6 text-center border-4 border-dashed border-gray-700 m-4 rounded-xl">
+                  <div class="p-4 bg-red-500/10 rounded-full mb-4">
+                    <UIcon name="i-lucide-camera-off" class="w-12 h-12 text-red-500" />
+                  </div>
+                  <h3 class="text-2xl font-black text-white mb-2 tracking-wide uppercase">Camera Access Blocked</h3>
+                  <p class="text-gray-400 max-w-md leading-relaxed text-sm">
+                    We cannot evaluate your signs because camera access has been denied or no video device was found.
+                    <br><br>
+                    To fix this, please enable camera permissions for this website in your browser settings and refresh the page.
+                  </p>
+                  <UButton color="primary" variant="solid" size="lg" icon="i-lucide-refresh-cw" class="mt-8 font-bold px-8 rounded-xl shadow-lg" @click="activateCamera">
+                    Check Again
+                  </UButton>
                 </div>
+
+                <template v-else>
+                  <video ref="videoElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1]" autoplay playsinline></video>
+                  <canvas ref="canvasElement" class="absolute inset-0 w-full h-full object-contain transform scale-x-[-1] pointer-events-none z-10"></canvas>
+                  <div v-if="isPredicting" class="absolute inset-0 z-15 bg-black/40 flex items-center justify-center">
+                    <UIcon name="i-lucide-loader-2" class="w-16 h-16 text-primary-500 animate-spin" />
+                  </div>
+                </template>
+
               </div>
 
               <div v-if="currentLevel === 'level_1' && feedbackHints.length > 0 && appState === 'IDLE'" class="bg-gray-800 p-4 border-t border-yellow-500/40 max-h-48 overflow-y-auto">
@@ -792,19 +879,68 @@ onBeforeUnmount(() => {
                 </ul>
               </div>
 
-              <div class="relative h-12 bg-gray-900 border-t border-gray-800 z-20 flex flex-col justify-end shrink-0">
-                <div class="absolute top-0 left-0 h-1 bg-gray-800 w-full">
+              <div class="relative bg-gray-900 border-t border-gray-800 z-20 flex flex-col shrink-0">
+                <div class="absolute top-0 left-0 h-1.5 bg-gray-800 w-full">
                   <div class="h-full transition-all duration-75" :class="signFrames.length === maxFrames ? 'bg-green-500' : 'bg-blue-500'" :style="{ width: `${(signFrames.length / maxFrames) * 100}%` }"></div>
                 </div>
-                <div class="flex items-center justify-between px-4 pb-2 pt-3 w-full">
-                  <div class="text-xs font-mono text-gray-300 flex items-center gap-4">
-                    <span v-if="appState === 'IDLE'" class="text-yellow-400 font-bold flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div> IDLE</span>
-                    <span v-else class="text-blue-400 font-bold flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div> BUFFERING {{ signFrames.length }}/{{ maxFrames }}</span>
-                    <span class="text-gray-500 hidden sm:inline">|</span><span v-if="appState === 'IDLE'" class="hidden sm:inline">Press <b>[N]</b> to start buffering</span><span v-else class="hidden sm:inline">Press <b>[SPACE]</b> for early predict</span>
-                    <span class="text-gray-500 hidden md:inline">|</span><span class="hidden md:inline"><b>[L]</b> Skeleton: <span :class="showLandmarks ? 'text-green-400' : 'text-red-400'">{{ showLandmarks ? 'ON' : 'OFF' }}</span></span>
-                    <span class="text-gray-500">|</span><span><b>[Q]</b> Quit</span>
+                
+                <div class="flex flex-col sm:flex-row items-center justify-between px-4 py-3 w-full mt-1 gap-3 sm:gap-0">
+                  
+                  <div class="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-center sm:justify-start">
+                    
+                    <div class="flex items-center text-xs font-mono font-bold mr-1" :class="appState === 'IDLE' ? 'text-yellow-400' : 'text-green-400'">
+                       <div class="w-2 h-2 rounded-full mr-2 animate-pulse" :class="appState === 'IDLE' ? 'bg-yellow-400' : 'bg-green-400'"></div>
+                       <span>{{ appState === 'IDLE' ? 'IDLE' : 'REC' }}</span>
+                    </div>
+
+                    <UButton 
+                      icon="i-lucide-video" 
+                      class="font-bold shadow transition-all text-white"
+                      :class="appState === 'IDLE' ? '!bg-green-600 hover:!bg-green-500 hover:scale-105' : '!bg-gray-600 hover:!bg-gray-600 opacity-50 cursor-not-allowed'"
+                      :disabled="appState === 'BUFFERING'"
+                      @click="startBuffering"
+                    >
+                      Start <span class="hidden md:inline">[N]</span>
+                    </UButton>
+                    
+                    <UButton 
+                      icon="i-lucide-square" 
+                      class="font-bold shadow transition-all text-white"
+                      :class="appState === 'BUFFERING' ? '!bg-red-600 hover:!bg-red-500 hover:scale-105' : '!bg-gray-600 hover:!bg-gray-600 opacity-50 cursor-not-allowed'"
+                      :disabled="appState === 'IDLE'"
+                      @click="stopBufferingEarly"
+                    >
+                      Stop <span class="hidden md:inline">[Space]</span>
+                    </UButton>
+
+                    <UButton 
+                      :icon="showLandmarks ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                      class="font-bold shadow transition-all text-white hover:scale-105"
+                      :class="showLandmarks ? '!bg-green-600 hover:!bg-green-500' : '!bg-gray-600 hover:!bg-gray-500'"
+                      @click="showLandmarks = !showLandmarks"
+                    >
+                      Skeleton: {{ showLandmarks ? 'ON' : 'OFF' }} <span class="hidden md:inline">[L]</span>
+                    </UButton>
+
+                    <UButton 
+                      color="gray" 
+                      variant="ghost" 
+                      icon="i-lucide-help-circle" 
+                      class="text-gray-400 hover:text-white"
+                      @click="isCameraInfoModalOpen = true"
+                    />
                   </div>
-                  <UButton color="gray" variant="ghost" icon="i-lucide-x" size="xs" @click="stopCamera" class="text-gray-500 hover:text-white" />
+
+                  <div class="w-full sm:w-auto flex justify-center sm:justify-end">
+                    <UButton 
+                      icon="i-lucide-log-out" 
+                      class="font-bold shadow-md text-white px-6 py-2 transition-colors !bg-red-600 hover:!bg-red-700"
+                      @click="stopCamera"
+                    >
+                      Exit <span class="hidden md:inline">[Q]</span>
+                    </UButton>
+                  </div>
+
                 </div>
               </div>
 
@@ -820,6 +956,45 @@ onBeforeUnmount(() => {
               <img v-else :src="getMediaUrl(currentMedia)" alt="Zoomed Sign Animation" class="w-full h-full object-contain p-4" />
             </div>
             <p class="absolute bottom-6 text-gray-400 font-medium tracking-wide pointer-events-none">Click anywhere outside or press <kbd class="px-2 py-1 bg-gray-800 rounded mx-1 text-white">Esc</kbd> to close</p>
+          </div>
+        </transition>
+
+        <transition name="modal-fade">
+          <div v-if="isDeleteChatModalOpen" class="fixed inset-0 z-[999] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4" @click.self="isDeleteChatModalOpen = false">
+            <UCard class="w-full max-w-md shadow-2xl relative border-t-4 border-t-red-500">
+              <template #header>
+                <div class="flex items-center gap-2 text-red-500">
+                  <UIcon name="i-lucide-alert-triangle" class="w-6 h-6" />
+                  <h3 class="text-xl font-bold">Delete Chat</h3>
+                </div>
+              </template>
+              <div class="py-4">
+                <p class="text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
+                  Are you sure you want to delete this chat?
+                </p>
+              </div>
+              <template #footer>
+                <div class="flex justify-end gap-3">
+                  <UButton 
+                    color="gray" 
+                    variant="solid" 
+                    class="px-4 py-2 font-bold shadow-sm bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
+                    @click="isDeleteChatModalOpen = false"
+                  >
+                    Cancel
+                  </UButton>
+                  
+                  <UButton 
+                    color="red" 
+                    variant="solid" 
+                    class="px-4 py-2 font-bold shadow-md bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white transition-colors"
+                    @click="confirmDeleteChat"
+                  >
+                    Yes, Delete Chat
+                  </UButton>
+                </div>
+              </template>
+            </UCard>
           </div>
         </transition>
 
@@ -874,6 +1049,42 @@ onBeforeUnmount(() => {
           </div>
         </transition>
 
+        <transition name="info-fade">
+          <div v-if="isCameraInfoModalOpen" class="fixed inset-0 z-[996] flex items-center justify-center bg-gray-950/70 backdrop-blur-sm p-4 sm:p-6" @click.self="isCameraInfoModalOpen = false">
+            <UCard class="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden" :ui="{ divide: 'divide-y divide-gray-100 dark:divide-gray-800', body: 'p-6' }">
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-primary-600 dark:text-primary-400">
+                    <UIcon name="i-lucide-video" class="w-6 h-6" />
+                    <h3 class="text-xl font-black tracking-wide uppercase text-gray-900 dark:text-white">Recording Guide</h3>
+                  </div>
+                  <UButton color="gray" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isCameraInfoModalOpen = false" />
+                </div>
+              </template>
+              
+              <div class="space-y-4 py-2 text-gray-900 dark:text-gray-300 text-sm leading-relaxed">
+                <p>
+                  To get the best results from the <b>Sign Recognition</b>, here is how you should record your sign:
+                </p>
+                <ul class="list-disc list-inside space-y-3 mt-4">
+                  <li>Click <b>Start</b> (or press [N]) to begin capturing your movement.</li>
+                  <li><b class="text-gray-900 dark:text-white">Continuous Mode:</b> You can repeat the sign continuously until the buffer progress bar reaches the end. The Sign Tutor will analyze the whole sequence.</li>
+                  <li><b class="text-gray-900 dark:text-white">Single Mode:</b> If you prefer to perform the sign just once, do it clearly and immediately click <b>Stop</b> (or press Spacebar) to let the Sign Tutor evaluate your recording early.</li>
+                </ul>
+                <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-400 font-medium text-xs">
+                  <UIcon name="i-lucide-alert-triangle" class="inline w-4 h-4 mr-1 align-text-bottom" /> Make sure your hands and face are clearly visible!
+                </div>
+              </div>
+
+              <template #footer>
+                <div class="flex justify-end">
+                  <UButton color="primary" variant="solid" size="md" class="px-6 py-2.5 font-bold rounded-xl shadow-md" @click="isCameraInfoModalOpen = false">Understood</UButton>
+                </div>
+              </template>
+            </UCard>
+          </div>
+        </transition>
+
       </Teleport>
     </ClientOnly>
   </div>
@@ -913,4 +1124,8 @@ onBeforeUnmount(() => {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; transform: scale(0.95); }
+
 </style>

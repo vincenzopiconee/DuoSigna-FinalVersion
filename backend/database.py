@@ -9,7 +9,11 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Creiamo il motore di connessione
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  
+    pool_recycle=3600    # <-- (Opzionale ma consigliato) Ricicla le connessioni ogni ora
+)
 
 # Creiamo una fabbrica di sessioni
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

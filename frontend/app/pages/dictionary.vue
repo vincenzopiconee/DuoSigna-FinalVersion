@@ -6,14 +6,14 @@
 
       <div class="flex-1 px-4 lg:px-8 py-8 w-full max-w-7xl mx-auto">
         
-        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 flex items-center justify-between mb-10 shadow-sm">
+        <div id="tour-dictionary-header" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 flex items-center justify-between mb-10 shadow-sm">
           <div class="flex items-center gap-4">
             <div class="bg-primary-100 dark:bg-primary-900/30 p-3 rounded-lg flex-shrink-0 flex items-center justify-center">
               <UIcon name="i-lucide-book-open" class="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Sign Dictionary</h1>
+                <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Dictionary</h1>
                 <UButton 
                   icon="i-lucide-info" 
                   color="primary" 
@@ -35,14 +35,56 @@
 
         <div v-else class="space-y-12">
           
-          <section id="tour-dictionary-grid">
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-2">
-              <UIcon name="i-lucide-case-upper" class="w-6 h-6 text-primary-500" />
-              Alphabet
-            </h2>
+          <div class="relative w-full mb-8">
+            <UInput 
+              v-model="searchQuery" 
+              icon="i-lucide-search" 
+              placeholder="Search for a sign" 
+              size="xl" 
+              class="w-full shadow-sm"
+              :ui="{ rounded: 'rounded-xl' }"
+              autocomplete="off"
+            >
+              <template #trailing>
+                <UButton
+                  v-show="searchQuery !== ''"
+                  color="gray"
+                  variant="link"
+                  icon="i-lucide-x"
+                  :padded="false"
+                  @click="searchQuery = ''"
+                />
+              </template>
+            </UInput>
+          </div>
+
+          <div v-if="searchQuery !== '' && alphabetSigns.length === 0 && categorizedWordSigns.length === 0" class="flex flex-col items-center justify-center min-h-[40vh] text-center opacity-70">
+            <UIcon name="i-lucide-search-x" class="w-24 h-24 text-gray-400 mb-6" />
+            <h3 class="text-3xl font-extrabold text-gray-700 dark:text-gray-300 break-all line-clamp-2 px-4 max-w-full">
+              No signs found for "{{ searchQuery }}"
+            </h3>
+            <p class="text-lg text-gray-500 mt-2">Try a different prefix.</p>
+          </div>
+
+          <div v-else-if="searchQuery === '' && alphabetSigns.length === 0 && categorizedWordSigns.length === 0" class="flex flex-col items-center justify-center min-h-[40vh] text-center opacity-70">
+            <UIcon name="i-lucide-server-crash" class="w-24 h-24 text-red-400 dark:text-red-500 mb-6 opacity-80" />
+            <h3 class="text-3xl font-extrabold text-gray-700 dark:text-gray-300 px-4">
+              Dictionary unavailable
+            </h3>
+            <p class="text-lg text-gray-500 mt-2">Unable to connect to the server.</p>
+          </div>
+
+          <section v-if="alphabetSigns.length > 0">
+            <div class="mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
+              <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2">
+                <UIcon name="i-lucide-case-upper" class="w-6 h-6 text-primary-500" />
+                Alphabet
+              </h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Practice single letters of the alphabet.</p>
+            </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
               <div v-for="letter in alphabetSigns" :key="letter.id" class="relative h-40">
-                <div v-if="!letter.isUnlocked" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-not-allowed select-none transition-colors">
+                <div v-if="!letter.isUnlocked" @click="handleSignClick(letter)" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:-translate-y-1">
                   <UIcon name="i-lucide-lock" class="w-10 h-10 text-gray-400 dark:text-gray-500 mb-3" />
                   <span class="font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase text-sm text-center">{{ letter.label }}</span>
                 </div>
@@ -56,35 +98,18 @@
             </div>
           </section>
 
-          <section>
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-2">
-              <UIcon name="i-lucide-hand" class="w-6 h-6 text-primary-500" />
-              Static Signs
-            </h2>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-              <div v-for="sign in staticSigns" :key="sign.id" class="relative h-40">
-                <div v-if="!sign.isUnlocked" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-not-allowed select-none transition-colors">
-                  <UIcon name="i-lucide-lock" class="w-10 h-10 text-gray-400 dark:text-gray-500 mb-3" />
-                  <span class="font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase text-sm text-center">{{ sign.label }}</span>
-                </div>
-                <div v-else @click="handleSignClick(sign)" class="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 border-2 border-primary-400 dark:border-primary-600 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-primary-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer group">
-                  <div class="w-14 h-14 bg-primary-50 dark:bg-primary-900/30 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <UIcon :name="getSpecificIcon(sign.id)" class="w-8 h-8" />
-                  </div>
-                  <span class="font-extrabold text-gray-800 dark:text-gray-100 tracking-wide uppercase text-sm text-center">{{ sign.label }}</span>
-                </div>
-              </div>
+          <!-- Dynamic Categories Rendering -->
+          <section v-for="category in categorizedWordSigns" :key="category.id" class="mt-12">
+            <div class="mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
+              <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2">
+                <UIcon :name="category.icon" class="w-6 h-6 text-primary-500" />
+                {{ category.title }}
+              </h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ category.description }}</p>
             </div>
-          </section>
-
-          <section>
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-2">
-              <UIcon name="i-lucide-move" class="w-6 h-6 text-primary-500" />
-              Dynamic Signs
-            </h2>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-              <div v-for="sign in dynamicSigns" :key="sign.id" class="relative h-40">
-                <div v-if="!sign.isUnlocked" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-not-allowed select-none transition-colors">
+              <div v-for="sign in category.signs" :key="sign.id" class="relative h-40">
+                <div v-if="!sign.isUnlocked" @click="handleSignClick(sign)" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-2xl p-4 cursor-pointer select-none transition-all duration-200 hover:shadow-md hover:-translate-y-1">
                   <UIcon name="i-lucide-lock" class="w-10 h-10 text-gray-400 dark:text-gray-500 mb-3" />
                   <span class="font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase text-sm text-center">{{ sign.label }}</span>
                 </div>
@@ -99,6 +124,7 @@
           </section>
 
         </div>
+
       </div>
     </div>
   </div>
@@ -117,16 +143,26 @@
             </template>
             <div class="flex flex-col items-center py-6 px-4 text-center">
               <div class="w-24 h-24 bg-primary-50 dark:bg-primary-900/30 text-primary-500 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                <UIcon :name="getSpecificIcon(selectedSign.id)" class="w-12 h-12" />
+                <UIcon :name="selectedSign.isUnlocked ? getSpecificIcon(selectedSign.id) : 'i-lucide-lock'" class="w-12 h-12" />
               </div>
               <h4 class="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">{{ selectedSign.label }}</h4>
               <div class="w-16 h-1 bg-primary-500 rounded-full mb-6"></div>
-              <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 w-full">
+              <div v-if="selectedSign.isUnlocked" class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 w-full">
                 <p class="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
                   {{ selectedSign.instructions || "Instructions not available for this sign." }}
                 </p>
                 <div v-show="!imageLoadError" class="flex justify-center mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
                   <img :src="`${backendUrl}/gif_output/${selectedSign.id}.gif`" :alt="`Sign for ${selectedSign.label}`" class="rounded-lg shadow-md max-w-full h-auto max-h-48 object-contain" @error="imageLoadError = true" />
+                </div>
+              </div>
+              <div v-else class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 w-full">
+                <p class="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
+                  You have not unlocked this sign yet. Do you want to learn it?
+                </p>
+                <div class="flex justify-center mt-5">
+                  <UButton color="primary" variant="solid" size="md" class="px-6 py-2.5 font-bold rounded-xl shadow-md" @click="handleLearnClick">
+                    Learn
+                  </UButton>
                 </div>
               </div>
             </div>
@@ -172,7 +208,7 @@
                   <div>
                     <h4 class="font-bold text-gray-900 dark:text-white text-lg">Sign Categories</h4>
                     <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
-                      Signs are organized into <b>Alphabet</b>, <b>Static Signs</b> (no movement), and <b>Dynamic Signs</b> (gestures involving motion), making it easy to find what you're looking for.
+                      Signs are organized into <b>Alphabet</b> and various <b>Thematic Categories</b> (like Animals, Actions, Food, etc.), making it easy to find what you're looking for.
                     </p>
                   </div>
                 </div>
@@ -210,21 +246,22 @@
 import { computed, ref } from 'vue'
 
 const isSignModalOpen = ref(false)
-const isInfoModalOpen = ref(false) // Stato per il pop-up informativo
+const isInfoModalOpen = ref(false) 
 const selectedSign = ref(null)
+const searchQuery = ref('') 
 
 const imageLoadError = ref(false)
 
 const backendUrl = 'http://localhost:8000' 
 const { token } = useAuth()
+const pendingLearningSign = useState('pending-learning-sign', () => null)
 
-// MAPPA DELLE ICONE SPECIFICHE
 const signIcons = {
   'a': 'i-mdi-alpha-a', 'b': 'i-mdi-alpha-b', 'c': 'i-mdi-alpha-c', 'd': 'i-mdi-alpha-d', 'e': 'i-mdi-alpha-e',
-  'bed': 'i-lucide-bed', 'boat': 'i-lucide-sailboat', 'book': 'i-lucide-book', 'callonphone': 'i-lucide-phone',
+  'bed': 'i-lucide-bed', 'boat': 'i-lucide-sailboat', 'book': 'i-lucide-book',
   'car': 'i-lucide-car', 'cheek': 'i-lucide-smile', 'down': 'i-lucide-arrow-down', 'ear': 'i-lucide-ear',
-  'eye': 'i-lucide-eye', 'feet': 'i-lucide-footprints', 'finger': 'i-lucide-pointer', 'fireman': 'i-lucide-flame',
-  'hair': 'i-lucide-scissors', 'hesheit': 'i-lucide-users', 'hungry': 'i-lucide-utensils', 'kiss': 'i-lucide-heart',
+  'eye': 'i-lucide-eye', 'feet': 'i-lucide-footprints', 'fireman': 'i-lucide-flame',
+  'hair': 'i-lucide-scissors', 'he': 'i-lucide-users', 'hungry': 'i-lucide-utensils', 'kiss': 'i-lucide-heart',
   'listen': 'i-lucide-headphones', 'look': 'i-lucide-search', 'man': 'i-lucide-user', 'minemy': 'i-lucide-hand',
   'nose': 'i-lucide-user', 'shhh': 'i-lucide-volume-x', 'stuck': 'i-lucide-lock', 'sun': 'i-lucide-sun',
   'table': 'i-lucide-table', 'there': 'i-lucide-map-pin', 'tongue': 'i-lucide-smile', 'up': 'i-lucide-arrow-up', 'wait': 'i-lucide-clock',
@@ -247,8 +284,8 @@ const signIcons = {
   'fall': 'i-lucide-arrow-down-to-line', 'farm': 'i-lucide-tractor', 'fast': 'i-lucide-zap', 'find': 'i-lucide-search',
   'fine': 'i-lucide-thumbs-up', 'finish': 'i-lucide-check-check', 'first': 'i-lucide-medal', 'fish': 'i-lucide-fish',
   'flag': 'i-lucide-flag', 'flower': 'i-lucide-flower', 'food': 'i-lucide-utensils', 'for': 'i-lucide-arrow-right',
-  'frenchfries': 'i-lucide-utensils', 'frog': 'i-lucide-bug', 'garbage': 'i-lucide-trash-2', 'gift': 'i-lucide-gift',
-  'giraffe': 'i-lucide-paw-print', 'girl': 'i-lucide-user', 'give': 'i-lucide-gift', 'glasswindow': 'i-lucide-app-window',
+  'french-fries': 'i-lucide-utensils', 'frog': 'i-lucide-bug', 'garbage': 'i-lucide-trash-2', 'gift': 'i-lucide-gift',
+  'giraffe': 'i-lucide-paw-print', 'girl': 'i-lucide-user', 'give': 'i-lucide-gift', 'glass-window': 'i-lucide-app-window',
   'go': 'i-lucide-play', 'goose': 'i-lucide-bird', 'grandma': 'i-lucide-user', 'grandpa': 'i-lucide-user',
   'grass': 'i-lucide-leaf', 'green': 'i-lucide-leaf', 'gum': 'i-lucide-smile', 'happy': 'i-lucide-smile',
   'hat': 'i-lucide-hard-hat', 'hate': 'i-lucide-frown', 'have': 'i-lucide-check', 'haveto': 'i-lucide-alert-circle',
@@ -275,12 +312,12 @@ const signIcons = {
   'sick': 'i-lucide-thermometer', 'sleep': 'i-lucide-moon', 'sleepy': 'i-lucide-bed', 'smile': 'i-lucide-smile',
   'snack': 'i-lucide-cookie', 'snow': 'i-lucide-snowflake', 'stairs': 'i-lucide-trending-up', 'stay': 'i-lucide-anchor',
   'sticky': 'i-lucide-magnet', 'store': 'i-lucide-store', 'story': 'i-lucide-book', 'talk': 'i-lucide-message-square',
-  'taste': 'i-lucide-utensils', 'thankyou': 'i-lucide-heart-handshake', 'that': 'i-lucide-pointer', 'think': 'i-lucide-brain',
+  'taste': 'i-lucide-utensils', 'thank-you': 'i-lucide-heart-handshake', 'that': 'i-lucide-pointer', 'think': 'i-lucide-brain',
   'thirsty': 'i-lucide-glass-water', 'tiger': 'i-lucide-paw-print', 'time': 'i-lucide-clock', 'tomorrow': 'i-lucide-calendar-clock',
   'tooth': 'i-lucide-smile', 'toothbrush': 'i-lucide-brush', 'touch': 'i-lucide-hand', 'toy': 'i-lucide-gamepad-2',
   'tree': 'i-lucide-tree-deciduous', 'tv': 'i-lucide-tv', 'uncle': 'i-lucide-user', 'underwear': 'i-lucide-shirt',
   'vacuum': 'i-lucide-wind', 'wake': 'i-lucide-sun', 'water': 'i-lucide-droplet', 'wet': 'i-lucide-droplets',
-  'weus': 'i-lucide-users', 'where': 'i-lucide-map-pin', 'white': 'i-lucide-circle', 'who': 'i-lucide-help-circle',
+  'we': 'i-lucide-users', 'where': 'i-lucide-map-pin', 'white': 'i-lucide-circle', 'who': 'i-lucide-help-circle',
   'why': 'i-lucide-help-circle', 'will': 'i-lucide-calendar-days', 'wolf': 'i-lucide-paw-print', 'yellow': 'i-lucide-sun',
   'yes': 'i-lucide-check', 'yesterday': 'i-lucide-history', 'yourself': 'i-lucide-user', 'yucky': 'i-lucide-thumbs-down',
   'zebra': 'i-lucide-paw-print', 'zipper': 'i-lucide-activity'
@@ -303,11 +340,114 @@ const handleSignClick = (sign) => {
   isSignModalOpen.value = true
 }
 
-const staticKeys = [
-  'bed', 'boat', 'book', 'callonphone', 'car', 'cheek', 'down', 'ear', 
-  'eye', 'feet', 'finger', 'fireman', 'hair', 'hesheit', 'hungry', 'kiss', 
-  'listen', 'look', 'man', 'minemy', 'nose', 'shhh', 'stuck', 'sun', 
-  'table', 'there', 'tongue', 'up', 'wait'
+const handleLearnClick = () => {
+  if (!selectedSign.value) return
+
+  pendingLearningSign.value = selectedSign.value.id
+  isSignModalOpen.value = false
+  navigateTo('/chatbot')
+}
+
+// Map the new categories
+const categoryDefinitions = [
+  { 
+    id: 'animals', 
+    title: 'Animals', 
+    icon: 'i-lucide-paw-print', 
+    description: 'All terms related to animals and insects.', 
+    keys: ['alligator', 'animal', 'bee', 'bird', 'bug', 'cat', 'cow', 'dog', 'donkey', 'duck', 'elephant', 'fish', 'frog', 'giraffe', 'goose', 'hen', 'horse', 'kitty', 'lion', 'mouse', 'owl', 'pig', 'puppy', 'tiger', 'wolf', 'zebra'] 
+  },
+  { 
+    id: 'actions', 
+    title: 'Actions & Verbs', 
+    icon: 'i-lucide-activity', 
+    description: 'Physical actions, interactions, and movements.', 
+    keys: ['blow', 'can', 'clean', 'close', 'cry', 'cut', 'dance', 'drink', 'drop', 'dry', 'fall', 'find', 'finish', 'give', 'go', 'hate', 'have', 'haveto', 'hear', 'hide', 'jump', 'kiss', 'like', 'listen', 'look', 'make', 'nap', 'open', 'pretend', 'read', 'ride', 'say', 'see', 'shhh', 'sleep', 'smile', 'stay', 'talk', 'taste', 'think', 'touch', 'wait', 'wake'] 
+  },
+  { 
+    id: 'food', 
+    title: 'Food & Drinks', 
+    icon: 'i-lucide-utensils', 
+    description: 'Food items, snacks, and beverages.', 
+    keys: ['apple', 'carrot', 'cereal', 'chocolate', 'food', 'french-fries', 'gum', 'icecream', 'milk', 'nuts', 'orange', 'pizza', 'snack', 'water'] 
+  },
+  { 
+    id: 'home', 
+    title: 'Home & Rooms', 
+    icon: 'i-lucide-home', 
+    description: 'Rooms of the house, furniture, and household items.', 
+    keys: ['backyard', 'bath', 'bed', 'bedroom', 'chair', 'closet', 'drawer', 'dryer', 'garbage', 'glass-window', 'home', 'lamp', 'potty', 'refrigerator', 'room', 'shower', 'stairs', 'table', 'tv', 'vacuum'] 
+  },
+  { 
+    id: 'objects', 
+    title: 'Objects & Toys', 
+    icon: 'i-lucide-package', 
+    description: 'Everyday objects, toys, and small tools.', 
+    keys: ['balloon', 'book', 'doll', 'flag', 'gift', 'napkin', 'pen', 'pencil', 'penny', 'puzzle', 'radio', 'scissors', 'shoe', 'toothbrush', 'toy', 'zipper'] 
+  },
+  { 
+    id: 'transport', 
+    title: 'Transport', 
+    icon: 'i-lucide-car', 
+    description: 'Vehicles and modes of transportation.', 
+    keys: ['airplane', 'boat', 'car', 'helicopter'] 
+  },
+  { 
+    id: 'people_professions', 
+    title: 'Family, People & Professions', 
+    icon: 'i-lucide-users', 
+    description: 'Family members, professions, and general terms for people.', 
+    keys: ['aunt', 'boy', 'brother', 'child', 'clown', 'cowboy', 'dad', 'fireman', 'girl', 'grandma', 'grandpa', 'man', 'mom', 'person', 'police', 'uncle', 'yourself'] 
+  },
+  { 
+    id: 'body', 
+    title: 'Body Parts', 
+    icon: 'i-lucide-user', 
+    description: 'Anatomy and body parts.', 
+    keys: ['arm', 'cheek', 'chin', 'ear', 'eye', 'face', 'feet', 'hair', 'head', 'lips', 'mouth', 'nose', 'tongue', 'tooth'] 
+  },
+  { 
+    id: 'colors', 
+    title: 'Colors', 
+    icon: 'i-lucide-palette', 
+    description: 'Colors and shades.', 
+    keys: ['black', 'blue', 'brown', 'green', 'red', 'white', 'yellow'] 
+  },
+  { 
+    id: 'nature', 
+    title: 'Nature & Places', 
+    icon: 'i-lucide-tree-pine', 
+    description: 'Nature, weather, and physical spaces.', 
+    keys: ['cloud', 'farm', 'flower', 'grass', 'moon', 'outside', 'pool', 'rain', 'snow', 'store', 'sun', 'there', 'tree'] 
+  },
+  { 
+    id: 'clothing', 
+    title: 'Clothing', 
+    icon: 'i-lucide-shirt', 
+    description: 'Apparel and accessories.', 
+    keys: ['hat', 'jacket', 'jeans', 'mitten', 'pajamas', 'shirt', 'underwear'] 
+  },
+  { 
+    id: 'emotions', 
+    title: 'Emotions, States & Adjectives', 
+    icon: 'i-lucide-smile', 
+    description: 'Feelings, conditions, and descriptive attributes.', 
+    keys: ['awake', 'bad', 'better', 'cute', 'dirty', 'empty', 'fast', 'fine', 'first', 'happy', 'high', 'hot', 'hungry', 'loud', 'mad', 'noisy', 'old', 'owie', 'pretty', 'quiet', 'sad', 'same', 'sick', 'sleepy', 'sticky', 'stuck', 'thirsty', 'wet', 'yucky'] 
+  },
+  { 
+    id: 'greetings', 
+    title: 'Greetings & Manners', 
+    icon: 'i-lucide-message-circle-heart', 
+    description: 'Polite expressions, greetings, and basic communication.', 
+    keys: ['bye', 'hello', 'please', 'thank-you'] 
+  },
+  { 
+    id: 'other', 
+    title: 'Time, Questions, Adverbs & Other', 
+    icon: 'i-lucide-help-circle', 
+    description: 'Time concepts, pronouns, adverbs, and grammar words.', 
+    keys: ['after', 'all', 'another', 'any', 'because', 'before', 'beside', 'down', 'every', 'for', 'he', 'if', 'into', 'later', 'many', 'minemy', 'morning', 'music', 'night', 'no', 'not', 'now', 'on', 'story', 'that', 'time', 'tomorrow', 'up', 'we', 'where', 'who', 'why', 'will', 'yes', 'yesterday'] 
+  }
 ]
 
 const { data, pending } = await useAsyncData('dictionaryData', async () => {
@@ -322,24 +462,53 @@ const { data, pending } = await useAsyncData('dictionaryData', async () => {
 
 const alphabetSigns = computed(() => {
   if (!data.value?.letters) return []
-  return Object.keys(data.value.letters).map(key => ({
-    id: key, label: key, isUnlocked: data.value.unlocked.includes(key.toLowerCase())
+  const query = (searchQuery.value || '').trim().toLowerCase() 
+
+  return Object.keys(data.value.letters)
+    .filter(key => key.toLowerCase().startsWith(query)) 
+    .map(key => ({
+      id: key, label: key, isUnlocked: data.value.unlocked.includes(key.toLowerCase())
   })).sort((a, b) => a.isUnlocked === b.isUnlocked ? a.label.localeCompare(b.label) : (a.isUnlocked ? -1 : 1))
 })
 
-const staticSigns = computed(() => {
+// Dynamically generate the categories arrays based on config
+const categorizedWordSigns = computed(() => {
   if (!data.value?.words) return []
-  return Object.keys(data.value.words).filter(key => staticKeys.includes(key)).map(key => ({ 
-    id: key, label: key, isUnlocked: data.value.unlocked.includes(key.toLowerCase())
-  })).sort((a, b) => a.isUnlocked === b.isUnlocked ? a.label.localeCompare(b.label) : (a.isUnlocked ? -1 : 1))
+  const query = (searchQuery.value || '').trim().toLowerCase()
+
+  const result = []
+  
+  categoryDefinitions.forEach(cat => {
+    const categorySigns = Object.keys(data.value.words)
+      .filter(key => cat.keys.includes(key.toLowerCase()) && key.toLowerCase().startsWith(query))
+      .map(key => ({
+        id: key, label: key, isUnlocked: data.value.unlocked.includes(key.toLowerCase())
+      }))
+      .sort((a, b) => a.isUnlocked === b.isUnlocked ? a.label.localeCompare(b.label) : (a.isUnlocked ? -1 : 1))
+    
+    if (categorySigns.length > 0) {
+      result.push({ ...cat, signs: categorySigns })
+    }
+  })
+
+  // Catch-all for any unmapped words
+  const allMappedKeys = categoryDefinitions.flatMap(c => c.keys)
+  const unmappedSigns = Object.keys(data.value.words)
+      .filter(key => !allMappedKeys.includes(key.toLowerCase()) && key.toLowerCase().startsWith(query))
+      .map(key => ({
+        id: key, label: key, isUnlocked: data.value.unlocked.includes(key.toLowerCase())
+      }))
+      .sort((a, b) => a.isUnlocked === b.isUnlocked ? a.label.localeCompare(b.label) : (a.isUnlocked ? -1 : 1))
+  
+  if (unmappedSigns.length > 0) {
+    result.push({
+       id: 'uncategorized', title: 'Other Signs', icon: 'i-lucide-grid', description: 'Additional signs.', signs: unmappedSigns
+    })
+  }
+
+  return result
 })
 
-const dynamicSigns = computed(() => {
-  if (!data.value?.words) return []
-  return Object.keys(data.value.words).filter(key => !staticKeys.includes(key)).map(key => ({ 
-    id: key, label: key, isUnlocked: data.value.unlocked.includes(key.toLowerCase())
-  })).sort((a, b) => a.isUnlocked === b.isUnlocked ? a.label.localeCompare(b.label) : (a.isUnlocked ? -1 : 1))
-})
 </script>
 
 <style scoped>

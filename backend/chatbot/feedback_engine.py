@@ -74,26 +74,14 @@ LETTER_FEATURE_HINTS = {
     # Pugno chiuso, pollice disteso lateralmente all'indice
     # ------------------------------------------------------------------ A
     "a": {
-        "index_pip_angle":  (
-            None,
-            "For A the fingers must be curled into a fist - your index finger is too straight",
-        ),
-        "index_dip_angle":  (
-            None,
-            "Curl the tip of your index finger toward your palm to close the fist properly",
-        ),
-        "middle_pip_angle": (
-            None,
-            "For A curl your middle finger into the fist too - it is too straight",
-        ),
-        "ring_pip_angle":   (
-            None,
-            "For A curl your ring finger into the fist too - it is too straight",
-        ),
-        "pinky_pip_angle":  (
-            None,
-            "For A curl your pinky into the fist too - it is too straight",
-        ),
+        "index_pip_angle":  (None, "For A the fingers must be curled into a fist - your index finger is too straight"),
+        "index_dip_angle":  (None, None),   # punta piegata = corretta per A, non segnalare
+        "middle_pip_angle": (None, "For A the fingers must be curled into a fist - your middle finger is too straight"),
+        "middle_dip_angle": (None, None),
+        "ring_pip_angle":   (None, "For A the fingers must be curled into a fist - your ring finger is too straight"),
+        "ring_dip_angle":   (None, None),
+        "pinky_pip_angle":  (None, "For A the fingers must be curled into a fist - your pinky finger is too straight"),
+        "pinky_dip_angle":  (None, None),
         "thumb_cmc_angle":  (
             "Open the base of your thumb slightly outward - for A the thumb rests laterally, not pressed flat against the palm",
             "The base of your thumb is too open - bring it closer to the side of the hand",
@@ -106,32 +94,12 @@ LETTER_FEATURE_HINTS = {
             "Your thumb is too close to the index finger - for A it sits laterally beside the fist, not on top of it",
             "Your thumb is too far from the index finger - bring it laterally alongside the fist",
         ),
-        "thumb_middle_tip_distance": (
-            None,
-            None,
-        ),
-        "thumb_ring_tip_distance": (
-            None,
-            None,
-        ),
-        "thumb_pinky_tip_distance": (
-            None,
-            None,
-        ),
-        # Nella A le dita sono chiuse a pugno: distanze tra punte piccole
-        # e dip angles bassi sono CORRETTI, non vanno segnalati
-        "index_middle_tip_distance": (None, None),
-        "middle_ring_tip_distance":  (None, None),
-        "ring_pinky_tip_distance":   (None, None),
-        "index_dip_angle":  (None, None),
-        "middle_dip_angle": (None, None),
-        "ring_dip_angle":   (None, None),
-        "pinky_dip_angle":  (None, None),
-        # pip angles bassi = dita chiuse = corretto per la A
-        "index_pip_angle":  (None, "For A the fingers must be curled into a fist - your index finger is too straight"),
-        "middle_pip_angle": (None, "For A curl your middle finger into the fist too - it is too straight"),
-        "ring_pip_angle":   (None, "For A curl your ring finger into the fist too - it is too straight"),
-        "pinky_pip_angle":  (None, "For A curl your pinky into the fist too - it is too straight"),
+        "thumb_middle_tip_distance":  (None, None),
+        "thumb_ring_tip_distance":    (None, None),
+        "thumb_pinky_tip_distance":   (None, None),
+        "index_middle_tip_distance":  (None, None),
+        "middle_ring_tip_distance":   (None, None),
+        "ring_pinky_tip_distance":    (None, None),
     },
 
     # ------------------------------------------------------------------ B
@@ -238,7 +206,7 @@ LETTER_FEATURE_HINTS = {
             "Your pinky is too straight - curve it to complete the C shape",
         ),
         "thumb_cmc_angle":  (
-            "Apri di pi? il pollice verso l'esterno  -  nella C la base del pollice e ben aperta, di fronte alle dita",
+            "Open the base of your thumb outward - for C the thumb is well open, facing the fingers",
             None,
         ),
         "thumb_mcp_angle":  (
@@ -378,120 +346,36 @@ LETTER_FEATURE_HINTS = {
     # Tutte le dita piegate a uncino verso il palmo,
     # pollice ripiegato stretto sotto le punte delle dita
     # ------------------------------------------------------------------ E
+    
     "e": {
-        "index_pip_angle":  (
-            None,
-            "For E all fingers must be bent toward the palm - your index finger is too straight",
-        ),
-        "index_dip_angle":  (
-            None,
-            "Curl the tip of your index finger toward the palm - for E the fingertips point downward",
-        ),
-        "middle_pip_angle": (
-            None,
-            "For E the middle finger must be bent toward the palm - it is too straight",
-        ),
-        "middle_dip_angle": (
-            None,
-            "Curl the tip of your middle finger toward the palm for E",
-        ),
-        "ring_pip_angle":   (
-            None,
-            "For E the ring finger must be bent toward the palm - it is too straight",
-        ),
-        "ring_dip_angle":   (
-            None,
-            "Curl the tip of your ring finger toward the palm for E",
-        ),
-        "pinky_pip_angle":  (
-            None,
-            "For E the pinky must also be bent - it is too straight",
-        ),
-        "pinky_dip_angle":  (
-            None,
-            "Curl the tip of your pinky toward the palm for E",
-        ),
-        "thumb_mcp_angle":  (
-            None,
-            "For E the thumb must be tucked tightly under the fingertips - bend it toward the palm",
-        ),
-        "thumb_ip_angle":   (
-            None,
-            "Bend the tip of your thumb downward - for E it is hidden under the fingers",
-        ),
-        "thumb_index_tip_distance": (
-            None,
-            "Your thumb is too far from the index finger - for E it is tucked under the fingertips",
-        ),
-        "thumb_middle_tip_distance": (
-            None,
-            "Your thumb is too far from the middle finger - tuck it under the fingertips for E",
-        ),
-        "thumb_ring_tip_distance": (
-            None,
-            "Your thumb is too far from the ring finger - for E it is tucked under all the fingertips",
-        ),
-        "thumb_pinky_tip_distance": (
-            None,
-            "Your thumb is too far from the pinky - for E it is brought under all the fingers",
-        ),
-        "thumb_cmc_angle":  (None, None),
-        # Nella E i dip angles sono ALTI (punta abbastanza estesa) per natura
-        # biomeccanica: pip chiuso ma dip quasi dritto e normale.
-        # Segnalare solo se sono troppo BASSI (punta eccessivamente ripiegata).
-        "index_dip_angle": (
-            None,   # punta molto piegata: ok per la E
-            None,   # punta estesa: normale per la E, non segnalare
-        ),
-        "middle_dip_angle": (
-            None,
-            None,
-        ),
-        "ring_dip_angle": (
-            None,
-            None,
-        ),
-        # Distanze tra dita adiacenti: nella E sono piccole (dita vicine).
-        # LOW (vicinissime) e corretto; HIGH (troppo separate) e rilevante.
-        "index_middle_tip_distance": (
-            None,
-            "Keep your index and middle finger close - for E the fingers are held together",
-        ),
-        "middle_ring_tip_distance": (
-            None,
-            "Keep your middle and ring finger close - for E the fingers are held together",
-        ),
-        "ring_pinky_tip_distance": (
-            None,
-            "Keep your ring finger and pinky close - for E the fingers are held together",
-        ),
+        # pip angles: dita piegate = corretto; troppo dritte = errore
+        "index_pip_angle":  (None, "For E all fingers must be bent toward the palm - your index finger is too straight"),
+        "middle_pip_angle": (None, "For E the middle finger must be bent toward the palm - it is too straight"),
+        "ring_pip_angle":   (None, "For E the ring finger must be bent toward the palm - it is too straight"),
+        "pinky_pip_angle":  (None, "For E the pinky must be bent - it is too straight"),
+        # dip angles: per natura biomeccanica il dip resta quasi dritto anche
+        # quando il pip e chiuso - non segnalare in nessuna direzione
+        "index_dip_angle":  (None, None),
+        "middle_dip_angle": (None, None),
+        "ring_dip_angle":   (None, None),
+        "pinky_dip_angle":  (None, None),
+        # pollice
+        "thumb_cmc_angle":           (None, None),
+        "thumb_mcp_angle":           (None, "For E the thumb must be tucked tightly under the fingertips - bend it toward the palm"),
+        "thumb_ip_angle":            (None, "Bend the tip of your thumb downward - for E it is hidden under the fingers"),
+        # distanze pollice-dita: troppo lontano = errore
+        "thumb_index_tip_distance":  (None, "Your thumb is too far from the index finger - for E it is tucked under the fingertips"),
+        "thumb_middle_tip_distance": (None, "Your thumb is too far from the middle finger - tuck it under the fingertips for E"),
+        "thumb_ring_tip_distance":   (None, "Your thumb is too far from the ring finger - for E it is tucked under all the fingertips"),
+        "thumb_pinky_tip_distance":  (None, "Your thumb is too far from the pinky - for E it is brought under all the fingers"),
+        # distanze tra dita adiacenti: troppo separate = errore
+        "index_middle_tip_distance": (None, "Keep your index and middle finger close - for E the fingers are held together"),
+        "middle_ring_tip_distance":  (None, "Keep your middle and ring finger close - for E the fingers are held together"),
+        "ring_pinky_tip_distance":   (None, "Keep your ring finger and pinky close - for E the fingers are held together"),
     },
 }
 
-# --------------------------------------------------
-# Fallback generico (usato se la lettera non ha un
-# hint specifico per quella feature).
-# --------------------------------------------------
-FEATURE_HINTS_GENERIC = {
-    "index_pip_angle":  ("Straighten your index finger more",          "Bend your index finger more"),
-    "index_dip_angle":  ("Straighten the tip of your index finger",     "Bend the tip of your index finger"),
-    "middle_pip_angle": ("Straighten your middle finger more",          "Bend your middle finger more"),
-    "middle_dip_angle": ("Straighten the tip of your middle finger",       "Bend the tip of your middle finger"),
-    "ring_pip_angle":   ("Straighten your ring finger more",         "Bend your ring finger more"),
-    "ring_dip_angle":   ("Straighten the tip of your ring finger",    "Bend the tip of your ring finger"),
-    "pinky_pip_angle":  ("Straighten your pinky more",        "Bend your pinky more"),
-    "pinky_dip_angle":  ("Straighten the tip of your pinky",     "Bend the tip of your pinky"),
-    "thumb_cmc_angle":  ("Open the base of your thumb more", "Close the base of your thumb"),
-    "thumb_mcp_angle":  ("Straighten your thumb more",        "Bend your thumb more"),
-    "thumb_ip_angle":   ("Straighten the tip of your thumb",     "Bend the tip of your thumb"),
-    "thumb_index_tip_distance":  ("Spread your thumb and index finger apart",    "Bring your thumb and index finger closer"),
-    "index_middle_tip_distance": ("Spread your index and middle finger apart",      "Bring your index and middle finger closer"),
-    "middle_ring_tip_distance":  ("Spread your middle and ring finger apart",     "Bring your middle and ring finger closer"),
-    "ring_pinky_tip_distance":   ("Spread your ring finger and pinky apart",   "Bring your ring finger and pinky closer"),
-    "thumb_middle_tip_distance": ("Move your thumb away from your middle finger",    "Bring your thumb closer to your middle finger"),
-    "thumb_ring_tip_distance":   ("Move your thumb away from your ring finger", "Bring your thumb closer to your ring finger"),
-    "thumb_pinky_tip_distance":  ("Move your thumb away from your pinky",  "Bring your thumb closer to your pinky"),
-}
+
 
 
 def _get_hint_message(letter: str, feature: str, direction: str):
@@ -516,13 +400,10 @@ def _get_hint_message(letter: str, feature: str, direction: str):
         # None significa "sopprimi", non "usa il generico"
         return letter_hints[feature][idx]
 
-    # Feature non definita per questa lettera ? fallback generico
-    generic = FEATURE_HINTS_GENERIC.get(feature)
-    if generic:
-        return generic[idx]
-
-    # fallback estremo
-    return f"{feature} {'troppo basso' if direction == 'low' else 'troppo alto'}"
+    # Feature non definita per questa lettera: warning
+    raise KeyError(
+        f"Feature '{feature}' non definita per la lettera '{letter}'"
+    )
 
 
 class FeedbackEngine:

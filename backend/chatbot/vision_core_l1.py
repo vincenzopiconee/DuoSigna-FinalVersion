@@ -37,15 +37,6 @@ FEATURE_NAMES = [
     "thumb_pinky_tip_distance"
 ]
 
-# Lettere con forma simile: se il modello predice una di queste
-# al posto della target, il feedback ha comunque senso.
-SIMILAR_LETTERS = {
-    "a": ["e"],
-    "e": ["a"],
-    "b": [],
-    "c": ["d"],
-    "d": ["c"],
-}
 
 # ==============================================================================
 # FUNZIONI MATEMATICHE
@@ -152,14 +143,12 @@ def evaluate_letter(frames: list, target_word: str) -> dict:
     # Soglia didattica al 65% per il Livello 1
     is_correct = (predicted_word == target_word.lower() and top_p >= 0.65)
 
-    # Feedback dato quando il modello riconosce la lettera target
-    # o una lettera con forma simile
+    # Feedback sempre dato, confrontando le feature con i percentili
+    # della lettera target (indipendentemente da cosa ha predetto il modello)
     feedback_list = []
-    target = target_word.lower()
-    similar = SIMILAR_LETTERS.get(target, [])
-    if feedback_engine and (predicted_word == target or predicted_word in similar):
+    if feedback_engine:
         features_dict = dict(zip(FEATURE_NAMES, features_median))
-        feedback_list = feedback_engine.get_feedback(features_dict, target_letter=target)
+        feedback_list = feedback_engine.get_feedback(features_dict, target_letter=target_word.lower())
         
     return {
         "predicted_word": predicted_word.upper(),

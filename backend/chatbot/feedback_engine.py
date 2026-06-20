@@ -29,32 +29,32 @@ MIN_SEVERITY = 0.15
 # (valori q50 da landmark_features_v5.csv)
 #
 # A  -  Pugno chiuso, pollice laterale all'indice
-#     pip_angoli ? 0.05 - 0.09 (dita serrate)
-#     thumb_index_tip_distance ? 0.67 (pollice a lato)
-#     thumb_middle/ring/pinky distanze ? 0.85 - 1.22
+#     pip_angoli ? 0.17 - 0.28 (dita serrate)
+#     thumb_index_tip_distance ? 0.69 (pollice a lato)
+#     thumb_middle/ring/pinky distanze ? 0.85 - 1.23
 #
 # B  -  Mano piatta, dita distese, pollice ripiegato sul palmo
-#     pip_angoli ? 0.97 - 0.99 (dita completamente distese)
+#     pip_angoli ? 0.96 - 0.97 (dita completamente distese)
 #     thumb_mcp_angle ? 0.68 (pollice piegato)
 #     thumb_pinky_tip_distance ? 0.74 (pollice vicino al mignolo)
 #
 # C  -  Mano a C, dita incurvate
-#     pip_angoli ? 0.73 - 0.83 (curvatura media)
-#     thumb_cmc_angle ? 0.88 (pollice aperto)
-#     distanze pollice-dita ? 0.60 - 0.62 (spazio a C)
+#     pip_angoli ? 0.74 - 0.82 (curvatura media)
+#     thumb_cmc_angle ? 0.86 (pollice aperto)
+#     distanze pollice-dita ? 0.62 - 0.66 (spazio a C)
 #
 # D  -  Indice dritto verso l'alto, altre dita piegate,
 #     pollice a contatto con medio/anulare
 #     index_pip_angle ? 0.95 (indice esteso)
-#     middle/ring_pip ? 0.53 - 0.56 (piegate)
+#     middle/ring_pip ? 0.57 - 0.61 (piegate)
 #     index_middle_tip_distance ? 1.38 (indice separato)
-#     thumb_middle/ring_tip_distance ? 0.24 - 0.27 (pollice tocca)
+#     thumb_middle/ring_tip_distance ? 0.30 - 0.38 (pollice tocca)
 #
 # E  -  Dita piegate a uncino, pollice stretto sotto le punte
-#     pip_angoli ? 0.06 - 0.14 (simile ad A ma pollice pi? basso)
-#     thumb_mcp_angle ? 0.61 (pollice ripiegato)
+#     pip_angoli ? 0.15 - 0.31 (simile ad A ma pollice pi? basso)
+#     thumb_mcp_angle ? 0.63 (pollice ripiegato)
 #     thumb_index_tip_distance ? 0.50 (pollice sotto l'indice)
-#     thumb_middle/ring/pinky distanze ? 0.20 - 0.32
+#     thumb_middle/ring/pinky distanze ? 0.25 - 0.33
 # --------------------------------------------------
 
 # --------------------------------------------------
@@ -84,7 +84,7 @@ LETTER_FEATURE_HINTS = {
         "pinky_dip_angle":  (None, None),
         "thumb_cmc_angle":  (
             "Open the base of your thumb slightly outward - for A the thumb rests laterally, not pressed flat against the palm",
-            "The base of your thumb is too open - bring it closer to the side of the hand",
+            "The base of your thumb is too open - fold it back in toward the fist, not out to the side",
         ),
         "thumb_mcp_angle":  (
             "Extend your thumb slightly - for A it rests laterally beside the fist, not bent forward",
@@ -130,9 +130,10 @@ LETTER_FEATURE_HINTS = {
             "Straighten the tip of your ring finger for B",
             None,
         ),
+        # pinky_pip_angle altissimo (>q90): mignolo iperesteso e fisiologico per la B
         "pinky_pip_angle":  (
             "For B the pinky must also be completely straight - you are holding it too bent",
-            None,
+            None,   # troppo disteso = ok per la B, non segnalare
         ),
         "pinky_dip_angle":  (
             "Straighten the tip of your pinky for B",
@@ -147,7 +148,7 @@ LETTER_FEATURE_HINTS = {
             "Fold your thumb onto the palm - for B it is not extended outward",
         ),
         "ring_pinky_tip_distance": (
-            "Keep your fingers slightly apart - for B they are not completely pressed together",
+            None,   # dita molto vicine: normale per la B, non segnalare (coerente con le altre coppie)
             "Your fingers are too spread apart - for B they are held close together",
         ),
         "thumb_pinky_tip_distance": (
@@ -164,11 +165,6 @@ LETTER_FEATURE_HINTS = {
         "middle_ring_tip_distance": (
             None,   # dita molto vicine: normale per la B, non segnalare
             "Keep your middle and ring finger together - for B the fingers are held close",
-        ),
-        # pinky_pip_angle altissimo (>q90): mignolo iperesteso e fisiologico per la B
-        "pinky_pip_angle": (
-            "For B the pinky must also be completely straight - you are holding it too bent",
-            None,   # troppo disteso = ok per la B, non segnalare
         ),
         # Distanze pollice-dita non rilevanti per la B
         "thumb_cmc_angle":           (None, None),
@@ -239,15 +235,15 @@ LETTER_FEATURE_HINTS = {
             None,
             "Keep your ring finger and pinky close - for C the fingers are not spread apart",
         ),
-        # dip angles alti (punta abbastanza distesa) sono normali per la C;
-        # un valore molto basso (punta troppo ripiegata) sarebbe invece rilevante
+        # dip angles: stessa biomeccanica per tutte le dita nella C, quindi
+        # gestiti in modo simmetrico (sia LOW che HIGH) come index/middle_dip_angle
         "ring_dip_angle": (
             "Open the tip of your ring finger slightly - for C it is not fully closed",
-            None,
+            "Curve the tip of your ring finger slightly toward the thumb",
         ),
         "pinky_dip_angle": (
             "Open the tip of your pinky slightly - for C it is not fully closed",
-            None,
+            "Curve the tip of your pinky slightly toward the thumb",
         ),
         "thumb_ip_angle":        (None, None),  # non rilevante per la C
         "thumb_pinky_tip_distance": (None, None),  # non rilevante per la C
@@ -272,7 +268,7 @@ LETTER_FEATURE_HINTS = {
         ),
         "middle_dip_angle": (
             None,
-            "Curl the tip of your middle finger toward the palm for D",
+            "Curl the tip of your middle finger - for D the curled fingers are not straight",
         ),
         "ring_pip_angle":   (
             None,
@@ -280,11 +276,15 @@ LETTER_FEATURE_HINTS = {
         ),
         "ring_dip_angle":   (
             None,
-            "Curl the tip of your ring finger toward the palm for D",
+            "Curl the tip of your ring finger - for D the curled fingers are not straight",
         ),
         "pinky_pip_angle":  (
             None,
             "For D the pinky must also be curled - it is too straight",
+        ),
+        "pinky_dip_angle":  (
+            None,
+            "Curl the tip of your pinky - for D the curled fingers are not straight",
         ),
         "thumb_index_tip_distance": (
             "Your thumb is too close to the index finger - for D the thumb touches the middle and ring fingers, not the index",
@@ -325,20 +325,6 @@ LETTER_FEATURE_HINTS = {
         "thumb_ip_angle": (
             "Extend the tip of your thumb - for D it is almost fully extended",
             None,
-        ),
-        # dip angles delle dita piegate: valori bassi (molto piegati) sono ok;
-        # valori alti (troppo estesi) significano che le dita non sono chiuse
-        "middle_dip_angle": (
-            None,
-            "Curl the tip of your middle finger - for D the curled fingers are not straight",
-        ),
-        "ring_dip_angle": (
-            None,
-            "Curl the tip of your ring finger - for D the curled fingers are not straight",
-        ),
-        "pinky_dip_angle": (
-            None,
-            "Curl the tip of your pinky - for D the curled fingers are not straight",
         ),
     },
 

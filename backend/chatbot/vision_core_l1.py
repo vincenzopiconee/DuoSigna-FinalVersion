@@ -37,6 +37,7 @@ FEATURE_NAMES = [
     "thumb_pinky_tip_distance"
 ]
 
+
 # ==============================================================================
 # FUNZIONI MATEMATICHE
 # ==============================================================================
@@ -141,9 +142,11 @@ def evaluate_letter(frames: list, target_word: str) -> dict:
     
     # Soglia didattica al 65% per il Livello 1
     is_correct = (predicted_word == target_word.lower() and top_p >= 0.65)
-    
+
+    # Feedback sempre dato, confrontando le feature con i percentili
+    # della lettera target (indipendentemente da cosa ha predetto il modello)
     feedback_list = []
-    if feedback_engine and is_correct:
+    if feedback_engine:
         features_dict = dict(zip(FEATURE_NAMES, features_median))
         feedback_list = feedback_engine.get_feedback(features_dict, target_letter=target_word.lower())
         
